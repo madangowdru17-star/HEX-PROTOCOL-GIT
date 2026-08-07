@@ -65,179 +65,164 @@ def admin_required(f):
 @admin_required
 def generate_keys():
     """Generate new keys with custom hours or days"""
-    data = request.json
-    count = int(data.get('count', 1))
-    duration_type = data.get('duration_type', 'hours')  # 'hours' or 'days'
-    duration_value = int(data.get('duration_value', 24))
-    
-    keys = load_data(KEYS_FILE)
-    generated = []
-    
-    for i in range(count):
-        key = generate_key()
+    try:
+        data = request.json
+        count = int(data.get('count', 1))
+        duration_type = data.get('duration_type', 'hours')
+        duration_value = int(data.get('duration_value', 24))
         
-        # Calculate expiry
-        if duration_type == 'days':
-            expires = (datetime.now() + timedelta(days=duration_value)).isoformat()
-        else:
-            expires = (datetime.now() + timedelta(hours=duration_value)).isoformat()
+        keys = load_data(KEYS_FILE)
+        generated = []
         
-        key_data = {
-            "key": key,
+        for i in range(count):
+            key = generate_key()
+            
+            if duration_type == 'days':
+                expires = (datetime.now() + timedelta(days=duration_value)).isoformat()
+            else:
+                expires = (datetime.now() + timedelta(hours=duration_value)).isoformat()
+            
+            key_data = {
+                "key": key,
+                "duration_type": duration_type,
+                "duration_value": duration_value,
+                "created": datetime.now().isoformat(),
+                "expires": expires,
+                "used": False,
+                "used_by": None,
+                "device": None,
+                "activated": None
+            }
+            keys.append(key_data)
+            generated.append(key)
+        
+        save_data(KEYS_FILE, keys)
+        
+        return jsonify({
+            "success": True,
+            "keys": generated,
+            "count": count,
             "duration_type": duration_type,
             "duration_value": duration_value,
-            "created": datetime.now().isoformat(),
-            "expires": expires,
-            "used": False,
-            "used_by": None,
-            "device": None,
-            "activated": None,
-            "type": data.get('type', 'premium')
-        }
-        keys.append(key_data)
-        generated.append(key)
-    
-    save_data(KEYS_FILE, keys)
-    
-    return jsonify({
-        "success": True,
-        "keys": generated,
-        "count": count,
-        "duration_type": duration_type,
-        "duration_value": duration_value,
-        "message": f"Generated {count} key(s) for {duration_value} {duration_type}"
-    })
+            "message": f"Generated {count} key(s) for {duration_value} {duration_type}"
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/activate', methods=['POST'])
 def activate_key():
     """Activate a key with device binding"""
-    data = request.json
-    key = data.get('key')
-    username = data.get('username', 'user')
-    device = data.get('device') or get_device_id(request)
-    
-    if not key:
-        return jsonify({"error": "Key required"}), 400
-    
-    keys = load_data(KEYS_FILE)
-    users = load_data(USERS_FILE)
-    devices = load_data(DEVICES_FILE)
-    
-    # Find and validate key
-    for k in keys:
-        if k['key'] == key:
-            if k['used']:
-                return jsonify({"error": "Key already used"}), 400
-            
-            # Check if expired
-            expires = datetime.fromisoformat(k['expires'])
-            if expires < datetime.now():
-                return jsonify({"error": "Key expired"}), 400
-            
-            # Activate
-            k['used'] = True
-            k['used_by'] = username
-            k['device'] = device
-            k['activated'] = datetime.now().isoformat()
-            
-            # Save user
-            user_data = {
-                "username": username,
-                "key": key,
-                "device": device,
-                "activated": datetime.now().isoformat(),
-                "expires": k['expires']
-            }
-            users.append(user_data)
-            
-            # Save device
-            device_data = {
-                "device_id": device,
-                "username": username,
-                "key": key,
-                "registered": datetime.now().isoformat()
-            }
-            devices.append(device_data)
-            
-            save_data(KEYS_FILE, keys)
-            save_data(USERS_FILE, users)
-            save_data(DEVICES_FILE, devices)
-            
-            # Calculate remaining
-            remaining_seconds = (expires - datetime.now()).total_seconds()
-            if k['duration_type'] == 'days':
-                remaining = f"{int(remaining_seconds / 86400)} days"
-            else:
-                remaining = f"{int(remaining_seconds / 3600)} hours"
-            
-            return jsonify({
-                "success": True,
-                "message": "Key activated successfully",
-                "key": key,
-                "username": username,
-                "device": device,
-                "expires": k['expires'],
-                "remaining": remaining,
-                "duration_type": k['duration_type'],
-                "duration_value": k['duration_value']
-            })
-    
-    return jsonify({"error": "Invalid key"}), 400
+    try:
+        data = request.json
+        key = data.get('key')
+        username = data.get('username', 'user')
+        device = data.get('device') or get_device_id(request)
+        
+        if not key:
+            return jsonify({"error": "Key required"}), 400
+        
+        keys = load_data(KEYS_FILE)
+        users = load_data(USERS_FILE)
+        devices = load_data(DEVICES_FILE)
+        
+        for k in keys:
+            if k['key'] == key:
+                if k['used']:
+                    return jsonify({"error": "Key already used"}), 400
+                
+                expires = datetime.fromisoformat(k['expires'])
+                if expires < datetime.now():
+                    return jsonify({"error": "Key expired"}), 400
+                
+                k['used'] = True
+                k['used_by'] = username
+                k['device'] = device
+                k['activated'] = datetime.now().isoformat()
+                
+                user_data = {
+                    "username": username,
+                    "key": key,
+                    "device": device,
+                    "activated": datetime.now().isoformat(),
+                    "expires": k['expires']
+                }
+                users.append(user_data)
+                
+                device_data = {
+                    "device_id": device,
+                    "username": username,
+                    "key": key,
+                    "registered": datetime.now().isoformat()
+                }
+                devices.append(device_data)
+                
+                save_data(KEYS_FILE, keys)
+                save_data(USERS_FILE, users)
+                save_data(DEVICES_FILE, devices)
+                
+                remaining_seconds = (expires - datetime.now()).total_seconds()
+                if k['duration_type'] == 'days':
+                    remaining = f"{int(remaining_seconds / 86400)} days"
+                else:
+                    remaining = f"{int(remaining_seconds / 3600)} hours"
+                
+                return jsonify({
+                    "success": True,
+                    "message": "Key activated",
+                    "key": key,
+                    "username": username,
+                    "device": device,
+                    "expires": k['expires'],
+                    "remaining": remaining
+                })
+        
+        return jsonify({"error": "Invalid key"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 @app.route('/api/verify', methods=['POST'])
 def verify_key():
     """Verify if a key is valid for a device"""
-    data = request.json
-    key = data.get('key')
-    device = data.get('device') or get_device_id(request)
-    
-    if not key:
-        return jsonify({"error": "Key required"}), 400
-    
-    keys = load_data(KEYS_FILE)
-    
-    for k in keys:
-        if k['key'] == key:
-            if not k['used']:
+    try:
+        data = request.json
+        key = data.get('key')
+        device = data.get('device') or get_device_id(request)
+        
+        if not key:
+            return jsonify({"error": "Key required"}), 400
+        
+        keys = load_data(KEYS_FILE)
+        
+        for k in keys:
+            if k['key'] == key:
+                if not k['used']:
+                    return jsonify({"valid": False, "error": "Key not activated"}), 400
+                
+                if k['device'] != device:
+                    return jsonify({"valid": False, "error": "Device mismatch"}), 400
+                
+                expires = datetime.fromisoformat(k['expires'])
+                if expires < datetime.now():
+                    return jsonify({"valid": False, "error": "Key expired"}), 400
+                
+                remaining_seconds = (expires - datetime.now()).total_seconds()
+                if k['duration_type'] == 'days':
+                    remaining = f"{int(remaining_seconds / 86400)} days"
+                else:
+                    remaining = f"{int(remaining_seconds / 3600)} hours"
+                
                 return jsonify({
-                    "valid": False,
-                    "error": "Key not activated"
-                }), 400
-            
-            # Check device match
-            if k['device'] != device:
-                return jsonify({
-                    "valid": False,
-                    "error": "Device mismatch"
-                }), 400
-            
-            # Check expiry
-            expires = datetime.fromisoformat(k['expires'])
-            if expires < datetime.now():
-                return jsonify({
-                    "valid": False,
-                    "error": "Key expired"
-                }), 400
-            
-            # Calculate remaining
-            remaining_seconds = (expires - datetime.now()).total_seconds()
-            if k['duration_type'] == 'days':
-                remaining = f"{int(remaining_seconds / 86400)} days"
-            else:
-                remaining = f"{int(remaining_seconds / 3600)} hours"
-            
-            return jsonify({
-                "valid": True,
-                "key": key,
-                "username": k['used_by'],
-                "device": k['device'],
-                "expires": k['expires'],
-                "remaining": remaining,
-                "duration_type": k['duration_type'],
-                "duration_value": k['duration_value']
-            })
-    
-    return jsonify({"valid": False, "error": "Invalid key"}), 400
+                    "valid": True,
+                    "key": key,
+                    "username": k['used_by'],
+                    "device": k['device'],
+                    "expires": k['expires'],
+                    "remaining": remaining
+                })
+        
+        return jsonify({"valid": False, "error": "Invalid key"}), 400
+    except Exception as e:
+        return jsonify({"valid": False, "error": str(e)}), 400
 
 @app.route('/api/check', methods=['GET'])
 def check_key():
@@ -250,64 +235,101 @@ def check_key():
     
     # Create a mock request for verify
     class MockRequest:
-        def __init__(self, device):
+        def __init__(self, key, device):
             self.json = {"key": key, "device": device}
-            self.args = {"key": key, "device": device}
     
     return verify_key()
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     """Get system statistics"""
-    keys = load_data(KEYS_FILE)
-    users = load_data(USERS_FILE)
-    
-    total = len(keys)
-    used = sum(1 for k in keys if k.get('used', False))
-    active = total - used
-    
-    return jsonify({
-        "total_keys": total,
-        "used_keys": used,
-        "active_keys": active,
-        "total_users": len(users)
-    })
+    try:
+        keys = load_data(KEYS_FILE)
+        users = load_data(USERS_FILE)
+        
+        total = len(keys)
+        used = sum(1 for k in keys if k.get('used', False))
+        active = total - used
+        
+        return jsonify({
+            "total_keys": total,
+            "used_keys": used,
+            "active_keys": active,
+            "total_users": len(users)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 @app.route('/api/keys', methods=['GET'])
 @admin_required
 def list_keys():
     """List all keys (admin only)"""
-    return jsonify(load_data(KEYS_FILE))
+    try:
+        return jsonify(load_data(KEYS_FILE))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 @app.route('/api/users', methods=['GET'])
 @admin_required
 def list_users():
     """List all users (admin only)"""
-    return jsonify(load_data(USERS_FILE))
+    try:
+        return jsonify(load_data(USERS_FILE))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 @app.route('/api/devices', methods=['GET'])
 @admin_required
 def list_devices():
     """List all devices (admin only)"""
-    return jsonify(load_data(DEVICES_FILE))
+    try:
+        return jsonify(load_data(DEVICES_FILE))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 @app.route('/api/delete/<key>', methods=['DELETE'])
 @admin_required
 def delete_key(key):
     """Delete a key"""
-    keys = load_data(KEYS_FILE)
-    keys = [k for k in keys if k['key'] != key]
-    save_data(KEYS_FILE, keys)
-    return jsonify({"success": True, "message": "Key deleted"})
+    try:
+        keys = load_data(KEYS_FILE)
+        keys = [k for k in keys if k['key'] != key]
+        save_data(KEYS_FILE, keys)
+        return jsonify({"success": True, "message": "Key deleted"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 @app.route('/api/clear', methods=['DELETE'])
 @admin_required
 def clear_all():
     """Clear all data"""
-    save_data(KEYS_FILE, [])
-    save_data(USERS_FILE, [])
-    save_data(DEVICES_FILE, [])
-    return jsonify({"success": True, "message": "All data cleared"})
+    try:
+        save_data(KEYS_FILE, [])
+        save_data(USERS_FILE, [])
+        save_data(DEVICES_FILE, [])
+        return jsonify({"success": True, "message": "All data cleared"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# =============================================
+# ADMIN AUTH
+# =============================================
+
+@app.route('/admin/login', methods=['POST'])
+def admin_login():
+    try:
+        data = request.json
+        if data.get('password') == 'admin123':
+            session['admin'] = True
+            return jsonify({"success": True})
+        return jsonify({"success": False}), 401
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin', None)
+    return jsonify({"success": True})
 
 # =============================================
 # ADMIN PANEL UI
@@ -396,8 +418,6 @@ HTML = '''
         .btn-primary:hover { transform: scale(1.05); }
         .btn-danger { background: #ff4444; color: #fff; }
         .btn-danger:hover { transform: scale(1.05); }
-        .btn-outline { background: transparent; border: 2px solid #222; color: #fff; }
-        .btn-outline:hover { border-color: #00ff88; color: #00ff88; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th { text-align: left; padding: 10px; color: #666; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid #222; }
         td { padding: 10px; border-bottom: 1px solid #1a1a1a; font-size: 13px; }
@@ -496,20 +516,17 @@ HTML = '''
         }
         .duration-hours { background: #1a3a2a; color: #00ff88; }
         .duration-days { background: #1a2a3a; color: #66aaff; }
+        .scrollable { max-height: 400px; overflow-y: auto; }
+        .scrollable::-webkit-scrollbar { width: 6px; }
+        .scrollable::-webkit-scrollbar-track { background: #0a0a0a; }
+        .scrollable::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+        .scrollable::-webkit-scrollbar-thumb:hover { background: #00ff88; }
         @media (max-width: 768px) {
             .header { flex-direction: column; gap: 10px; padding: 15px; }
             .stats { grid-template-columns: repeat(2, 1fr); }
             .input-group { flex-direction: column; }
             .input-group input, .input-group select { width: 100%; }
         }
-        .scrollable {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        .scrollable::-webkit-scrollbar { width: 6px; }
-        .scrollable::-webkit-scrollbar-track { background: #0a0a0a; }
-        .scrollable::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
-        .scrollable::-webkit-scrollbar-thumb:hover { background: #00ff88; }
     </style>
 </head>
 <body>
@@ -547,11 +564,6 @@ HTML = '''
                     <option value="hours">Hours</option>
                     <option value="days">Days</option>
                 </select>
-                <select id="keyType" style="max-width:120px;">
-                    <option value="premium">Premium</option>
-                    <option value="vip">VIP</option>
-                    <option value="standard">Standard</option>
-                </select>
                 <button class="btn btn-primary" onclick="generateKeys()"><i class="fas fa-wand-magic-sparkles"></i> Generate</button>
             </div>
             <div id="generatedKeys"></div>
@@ -571,7 +583,6 @@ HTML = '''
                         <thead><tr>
                             <th>Key</th>
                             <th>Duration</th>
-                            <th>Type</th>
                             <th>Status</th>
                             <th>User</th>
                             <th>Device</th>
@@ -624,9 +635,7 @@ HTML = '''
                         <p><span style="color:#00ff88;">GET</span> /api/stats - System statistics</p>
                     </div>
                     <div style="margin-top:15px; background:#0a0a0a; padding:15px; border-radius:6px; border:1px solid #222;">
-                        <p style="color:#888; font-size:13px;">
-                            <strong>Activate Example:</strong>
-                        </p>
+                        <p style="color:#888; font-size:13px;"><strong>Activate Example:</strong></p>
                         <pre style="color:#00ff88; font-size:12px; background:#000; padding:10px; border-radius:4px;">
 {
   "key": "ABCDEFGHIJKLMNOP",
@@ -707,7 +716,7 @@ function loadKeys() {
         const tbody = document.getElementById('keysTable');
         tbody.innerHTML = '';
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#444; padding:20px;">No keys generated yet</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#444; padding:20px;">No keys generated yet</td></tr>';
             return;
         }
         data.forEach(k => {
@@ -726,7 +735,6 @@ function loadKeys() {
             tr.innerHTML = `
                 <td style="font-family:monospace; font-size:12px;">${k.key}</td>
                 <td>${durationDisplay}</td>
-                <td><span style="color:#66aaff;">${k.type || 'premium'}</span></td>
                 <td class="${statusCls}">${statusText}</td>
                 <td>${k.used_by || '-'}</td>
                 <td style="font-family:monospace; font-size:10px;">${k.device ? k.device.substring(0,16)+'...' : '-'}</td>
@@ -808,7 +816,6 @@ function generateKeys() {
     const count = document.getElementById('keyCount').value || 1;
     const durationValue = document.getElementById('durationValue').value || 24;
     const durationType = document.getElementById('durationType').value;
-    const keyType = document.getElementById('keyType').value;
 
     fetch('/api/generate', {
         method: 'POST',
@@ -816,8 +823,7 @@ function generateKeys() {
         body: JSON.stringify({ 
             count: parseInt(count), 
             duration_value: parseInt(durationValue),
-            duration_type: durationType,
-            type: keyType
+            duration_type: durationType
         })
     })
     .then(res => res.json())
@@ -898,7 +904,6 @@ function toast(msg, type) {
     setTimeout(() => div.remove(), 3000);
 }
 
-// Auto-refresh every 30 seconds
 setInterval(loadAll, 30000);
 </script>
 </body>
@@ -908,19 +913,6 @@ setInterval(loadAll, 30000);
 @app.route('/')
 def admin_panel():
     return render_template_string(HTML)
-
-@app.route('/admin/login', methods=['POST'])
-def admin_login():
-    data = request.json
-    if data.get('password') == 'admin123':
-        session['admin'] = True
-        return jsonify({"success": True})
-    return jsonify({"success": False}), 401
-
-@app.route('/admin/logout')
-def admin_logout():
-    session.pop('admin', None)
-    return jsonify({"success": True})
 
 # =============================================
 # RUN
