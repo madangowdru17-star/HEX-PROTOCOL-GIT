@@ -1,10 +1,9 @@
-# hex_app.py - Complete Fixed Key System
+# hex_app.py - Complete Working Key System for Railway
 import os
 import json
 import hashlib
 import secrets
 import string
-import time
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template_string, session
 from flask_cors import CORS
@@ -15,7 +14,7 @@ app.secret_key = "HEX_KEYS_SECRET_2026"
 CORS(app)
 
 # =============================================
-# DATA FILES
+# DATA FILES - Railway supports file storage
 # =============================================
 
 KEYS_FILE = "keys.json"
@@ -38,12 +37,10 @@ def save_data(filename, data):
 # =============================================
 
 def generate_key():
-    """Generate 16 character key"""
     chars = string.ascii_uppercase + string.digits
     return ''.join(secrets.choice(chars) for _ in range(16))
 
 def get_device_id(request):
-    """Get unique device ID from request"""
     user_agent = request.headers.get('User-Agent', 'unknown')
     ip = request.remote_addr
     combined = f"{user_agent}|{ip}"
@@ -64,7 +61,6 @@ def admin_required(f):
 @app.route('/api/generate', methods=['POST'])
 @admin_required
 def generate_keys():
-    """Generate new keys with custom hours or days"""
     try:
         data = request.json
         count = int(data.get('count', 1))
@@ -111,7 +107,6 @@ def generate_keys():
 
 @app.route('/api/activate', methods=['POST'])
 def activate_key():
-    """Activate a key with device binding"""
     try:
         data = request.json
         key = data.get('key')
@@ -182,7 +177,6 @@ def activate_key():
 
 @app.route('/api/verify', methods=['POST'])
 def verify_key():
-    """Verify if a key is valid for a device"""
     try:
         data = request.json
         key = data.get('key')
@@ -226,23 +220,14 @@ def verify_key():
 
 @app.route('/api/check', methods=['GET'])
 def check_key():
-    """Simple GET endpoint for quick check"""
     key = request.args.get('key')
     device = request.args.get('device')
-    
     if not key:
         return jsonify({"error": "Key required"}), 400
-    
-    # Create a mock request for verify
-    class MockRequest:
-        def __init__(self, key, device):
-            self.json = {"key": key, "device": device}
-    
     return verify_key()
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
-    """Get system statistics"""
     try:
         keys = load_data(KEYS_FILE)
         users = load_data(USERS_FILE)
@@ -263,7 +248,6 @@ def get_stats():
 @app.route('/api/keys', methods=['GET'])
 @admin_required
 def list_keys():
-    """List all keys (admin only)"""
     try:
         return jsonify(load_data(KEYS_FILE))
     except Exception as e:
@@ -272,7 +256,6 @@ def list_keys():
 @app.route('/api/users', methods=['GET'])
 @admin_required
 def list_users():
-    """List all users (admin only)"""
     try:
         return jsonify(load_data(USERS_FILE))
     except Exception as e:
@@ -281,7 +264,6 @@ def list_users():
 @app.route('/api/devices', methods=['GET'])
 @admin_required
 def list_devices():
-    """List all devices (admin only)"""
     try:
         return jsonify(load_data(DEVICES_FILE))
     except Exception as e:
@@ -290,7 +272,6 @@ def list_devices():
 @app.route('/api/delete/<key>', methods=['DELETE'])
 @admin_required
 def delete_key(key):
-    """Delete a key"""
     try:
         keys = load_data(KEYS_FILE)
         keys = [k for k in keys if k['key'] != key]
@@ -302,7 +283,6 @@ def delete_key(key):
 @app.route('/api/clear', methods=['DELETE'])
 @admin_required
 def clear_all():
-    """Clear all data"""
     try:
         save_data(KEYS_FILE, [])
         save_data(USERS_FILE, [])
@@ -332,7 +312,7 @@ def admin_logout():
     return jsonify({"success": True})
 
 # =============================================
-# ADMIN PANEL UI
+# UI
 # =============================================
 
 HTML = '''
@@ -345,75 +325,23 @@ HTML = '''
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background: #0a0a0a;
-            color: #fff;
-            min-height: 100vh;
-        }
-        .header {
-            background: linear-gradient(135deg, #00ff88, #00cc66);
-            padding: 20px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: #fff; min-height: 100vh; }
+        .header { background: linear-gradient(135deg, #00ff88, #00cc66); padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; }
         .header h1 { color: #0a0a0a; font-size: 24px; }
         .header h1 i { margin-right: 10px; }
         .badge { background: #0a0a0a; color: #00ff88; padding: 5px 15px; border-radius: 20px; font-size: 12px; }
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-        .stat {
-            background: #111;
-            border: 1px solid #222;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-        }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .stat { background: #111; border: 1px solid #222; border-radius: 12px; padding: 20px; text-align: center; }
         .stat .num { font-size: 32px; font-weight: 900; color: #00ff88; }
         .stat .label { color: #666; font-size: 12px; text-transform: uppercase; margin-top: 5px; }
-        .panel {
-            background: #111;
-            border: 1px solid #222;
-            border-radius: 12px;
-            padding: 25px;
-            margin-bottom: 25px;
-        }
+        .panel { background: #111; border: 1px solid #222; border-radius: 12px; padding: 25px; margin-bottom: 25px; }
         .panel h3 { color: #00ff88; margin-bottom: 15px; }
         .panel h3 i { margin-right: 10px; }
-        .input-group {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        .input-group input, .input-group select {
-            padding: 10px 15px;
-            background: #1a1a1a;
-            border: 2px solid #222;
-            border-radius: 8px;
-            color: #fff;
-            font-size: 14px;
-            flex: 1;
-            min-width: 80px;
-        }
-        .input-group input:focus, .input-group select:focus {
-            outline: none;
-            border-color: #00ff88;
-        }
-        .btn {
-            padding: 10px 25px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: 0.3s;
-        }
+        .input-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .input-group input, .input-group select { padding: 10px 15px; background: #1a1a1a; border: 2px solid #222; border-radius: 8px; color: #fff; font-size: 14px; flex: 1; min-width: 80px; }
+        .input-group input:focus, .input-group select:focus { outline: none; border-color: #00ff88; }
+        .btn { padding: 10px 25px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.3s; }
         .btn-primary { background: #00ff88; color: #0a0a0a; }
         .btn-primary:hover { transform: scale(1.05); }
         .btn-danger { background: #ff4444; color: #fff; }
@@ -426,94 +354,27 @@ HTML = '''
         .status-used { color: #ffaa00; }
         .status-expired { color: #ff4444; }
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .tab {
-            padding: 8px 20px;
-            background: #1a1a1a;
-            border: 2px solid #222;
-            border-radius: 8px;
-            color: #666;
-            cursor: pointer;
-            transition: 0.3s;
-        }
+        .tab { padding: 8px 20px; background: #1a1a1a; border: 2px solid #222; border-radius: 8px; color: #666; cursor: pointer; transition: 0.3s; }
         .tab.active { border-color: #00ff88; color: #00ff88; background: #0a0a0a; }
         .tab:hover { border-color: #00ff88; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .login-overlay {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
-        .login-box {
-            background: #111;
-            border: 2px solid #222;
-            border-radius: 16px;
-            padding: 40px;
-            width: 90%;
-            max-width: 380px;
-            text-align: center;
-        }
+        .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .login-box { background: #111; border: 2px solid #222; border-radius: 16px; padding: 40px; width: 90%; max-width: 380px; text-align: center; }
         .login-box h2 { color: #00ff88; margin-bottom: 10px; }
         .login-box p { color: #666; margin-bottom: 20px; }
-        .login-box input {
-            width: 100%;
-            padding: 12px;
-            background: #1a1a1a;
-            border: 2px solid #222;
-            border-radius: 8px;
-            color: #fff;
-            margin-bottom: 15px;
-        }
+        .login-box input { width: 100%; padding: 12px; background: #1a1a1a; border: 2px solid #222; border-radius: 8px; color: #fff; margin-bottom: 15px; }
         .login-box input:focus { border-color: #00ff88; outline: none; }
         .login-box .btn { width: 100%; }
-        .toast {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            z-index: 10000;
-            animation: slideIn 0.5s;
-        }
+        .toast { position: fixed; bottom: 30px; right: 30px; padding: 12px 24px; border-radius: 8px; font-weight: 600; z-index: 10000; animation: slideIn 0.5s; }
         .toast-success { background: #00cc66; color: #0a0a0a; }
         .toast-error { background: #ff4444; color: #fff; }
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        .footer {
-            text-align: center;
-            padding: 20px;
-            color: #444;
-            font-size: 12px;
-            border-top: 1px solid #111;
-            margin-top: 20px;
-        }
-        .key-display {
-            background: #0a0a0a;
-            border: 2px solid #222;
-            border-radius: 8px;
-            padding: 15px;
-            font-family: monospace;
-            font-size: 18px;
-            color: #00ff88;
-            margin: 10px 0;
-        }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .footer { text-align: center; padding: 20px; color: #444; font-size: 12px; border-top: 1px solid #111; margin-top: 20px; }
+        .key-display { background: #0a0a0a; border: 2px solid #222; border-radius: 8px; padding: 15px; font-family: monospace; font-size: 18px; color: #00ff88; margin: 10px 0; }
         .copy-btn { background: none; border: none; color: #00ff88; cursor: pointer; margin-left: 10px; }
         .copy-btn:hover { color: #fff; }
-        .duration-badge {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-        }
+        .duration-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
         .duration-hours { background: #1a3a2a; color: #00ff88; }
         .duration-days { background: #1a2a3a; color: #66aaff; }
         .scrollable { max-height: 400px; overflow-y: auto; }
@@ -521,16 +382,10 @@ HTML = '''
         .scrollable::-webkit-scrollbar-track { background: #0a0a0a; }
         .scrollable::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
         .scrollable::-webkit-scrollbar-thumb:hover { background: #00ff88; }
-        @media (max-width: 768px) {
-            .header { flex-direction: column; gap: 10px; padding: 15px; }
-            .stats { grid-template-columns: repeat(2, 1fr); }
-            .input-group { flex-direction: column; }
-            .input-group input, .input-group select { width: 100%; }
-        }
+        @media (max-width: 768px) { .header { flex-direction: column; gap: 10px; padding: 15px; } .stats { grid-template-columns: repeat(2, 1fr); } .input-group { flex-direction: column; } .input-group input, .input-group select { width: 100%; } }
     </style>
 </head>
 <body>
-
 <div id="loginOverlay" class="login-overlay">
     <div class="login-box">
         <h2><i class="fas fa-key"></i> HEX KEYS</h2>
@@ -540,13 +395,11 @@ HTML = '''
         <p style="margin-top: 15px; font-size: 11px; color: #444;">Default: admin123</p>
     </div>
 </div>
-
 <div id="main" style="display:none;">
     <div class="header">
         <h1><i class="fas fa-key"></i> HEX KEY SYSTEM</h1>
         <span class="badge"><i class="fas fa-bolt"></i> PREMIUM</span>
     </div>
-
     <div class="container">
         <div class="stats" id="stats">
             <div class="stat"><div class="num" id="totalKeys">0</div><div class="label">Total Keys</div></div>
@@ -554,7 +407,6 @@ HTML = '''
             <div class="stat"><div class="num" id="usedKeys">0</div><div class="label">Used Keys</div></div>
             <div class="stat"><div class="num" id="totalUsers">0</div><div class="label">Users</div></div>
         </div>
-
         <div class="panel">
             <h3><i class="fas fa-plus-circle"></i> Generate Keys</h3>
             <div class="input-group">
@@ -568,7 +420,6 @@ HTML = '''
             </div>
             <div id="generatedKeys"></div>
         </div>
-
         <div class="panel">
             <div class="tabs">
                 <div class="tab active" onclick="switchTab('keys')"><i class="fas fa-keys"></i> Keys</div>
@@ -576,54 +427,30 @@ HTML = '''
                 <div class="tab" onclick="switchTab('devices')"><i class="fas fa-laptop"></i> Devices</div>
                 <div class="tab" onclick="switchTab('api')"><i class="fas fa-code"></i> API</div>
             </div>
-
             <div id="tabKeys" class="tab-content active">
                 <div class="scrollable">
                     <table>
-                        <thead><tr>
-                            <th>Key</th>
-                            <th>Duration</th>
-                            <th>Status</th>
-                            <th>User</th>
-                            <th>Device</th>
-                            <th>Expires</th>
-                            <th>Action</th>
-                        </tr></thead>
+                        <thead><tr><th>Key</th><th>Duration</th><th>Status</th><th>User</th><th>Device</th><th>Expires</th><th>Action</th></tr></thead>
                         <tbody id="keysTable"></tbody>
                     </table>
                 </div>
             </div>
-
             <div id="tabUsers" class="tab-content">
                 <div class="scrollable">
                     <table>
-                        <thead><tr>
-                            <th>Username</th>
-                            <th>Key</th>
-                            <th>Device</th>
-                            <th>Activated</th>
-                            <th>Expires</th>
-                            <th>Remaining</th>
-                        </tr></thead>
+                        <thead><tr><th>Username</th><th>Key</th><th>Device</th><th>Activated</th><th>Expires</th><th>Remaining</th></tr></thead>
                         <tbody id="usersTable"></tbody>
                     </table>
                 </div>
             </div>
-
             <div id="tabDevices" class="tab-content">
                 <div class="scrollable">
                     <table>
-                        <thead><tr>
-                            <th>Device ID</th>
-                            <th>Username</th>
-                            <th>Key</th>
-                            <th>Registered</th>
-                        </tr></thead>
+                        <thead><tr><th>Device ID</th><th>Username</th><th>Key</th><th>Registered</th></tr></thead>
                         <tbody id="devicesTable"></tbody>
                     </table>
                 </div>
             </div>
-
             <div id="tabApi" class="tab-content">
                 <div style="background:#0a0a0a; padding:20px; border-radius:8px; border:1px solid #222;">
                     <h4 style="color:#00ff88;">API Endpoints for Java Injector</h4>
@@ -649,17 +476,13 @@ HTML = '''
                 </div>
             </div>
         </div>
-
         <div class="footer">
             <i class="fas fa-key" style="color:#00ff88;"></i> HEX KEY SYSTEM &bull; 
             <a href="#" onclick="logout()" style="color:#00ff88; text-decoration:none;">Logout</a>
         </div>
     </div>
 </div>
-
 <script>
-let isLoggedIn = false;
-
 function login() {
     const pass = document.getElementById('adminPass').value;
     fetch('/admin/login', {
@@ -670,7 +493,6 @@ function login() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            isLoggedIn = true;
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('main').style.display = 'block';
             loadAll();
@@ -684,18 +506,12 @@ function login() {
 
 function logout() {
     fetch('/admin/logout').then(() => {
-        isLoggedIn = false;
         document.getElementById('loginOverlay').style.display = 'flex';
         document.getElementById('main').style.display = 'none';
     });
 }
 
-function loadAll() {
-    loadStats();
-    loadKeys();
-    loadUsers();
-    loadDevices();
-}
+function loadAll() { loadStats(); loadKeys(); loadUsers(); loadDevices(); }
 
 function loadStats() {
     fetch('/api/stats')
@@ -722,15 +538,12 @@ function loadKeys() {
         data.forEach(k => {
             const used = k.used || false;
             const expired = new Date(k.expires) < new Date();
-            let statusText = 'ACTIVE';
-            let statusCls = 'status-active';
+            let statusText = 'ACTIVE', statusCls = 'status-active';
             if (used) { statusText = 'USED'; statusCls = 'status-used'; }
             if (expired && !used) { statusText = 'EXPIRED'; statusCls = 'status-expired'; }
-            
             const durationDisplay = k.duration_type === 'days' 
                 ? `<span class="duration-badge duration-days">${k.duration_value}d</span>`
                 : `<span class="duration-badge duration-hours">${k.duration_value}h</span>`;
-            
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="font-family:monospace; font-size:12px;">${k.key}</td>
@@ -739,11 +552,7 @@ function loadKeys() {
                 <td>${k.used_by || '-'}</td>
                 <td style="font-family:monospace; font-size:10px;">${k.device ? k.device.substring(0,16)+'...' : '-'}</td>
                 <td style="font-size:11px;">${new Date(k.expires).toLocaleDateString()}</td>
-                <td>
-                    <button class="btn btn-danger" style="padding:4px 12px; font-size:11px;" onclick="deleteKey('${k.key}')">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
+                <td><button class="btn btn-danger" style="padding:4px 12px; font-size:11px;" onclick="deleteKey('${k.key}')"><i class="fas fa-trash"></i></button></td>
             `;
             tbody.appendChild(tr);
         });
@@ -854,10 +663,7 @@ function deleteKey(key) {
     fetch(`/api/delete/${key}`, { method: 'DELETE' })
     .then(res => res.json())
     .then(data => {
-        if (data.success) {
-            toast('Key deleted', 'success');
-            loadAll();
-        }
+        if (data.success) { toast('Key deleted', 'success'); loadAll(); }
     })
     .catch(() => toast('Delete error', 'error'));
 }
@@ -867,28 +673,20 @@ function clearAll() {
     fetch('/api/clear', { method: 'DELETE' })
     .then(res => res.json())
     .then(data => {
-        if (data.success) {
-            toast('All data cleared', 'success');
-            loadAll();
-        }
+        if (data.success) { toast('All data cleared', 'success'); loadAll(); }
     })
     .catch(() => toast('Error clearing data', 'error'));
 }
 
-function copyKey(key) {
-    navigator.clipboard.writeText(key);
-    toast('Key copied!', 'success');
-}
+function copyKey(key) { navigator.clipboard.writeText(key); toast('Key copied!', 'success'); }
 
 function switchTab(tab) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-    
     document.getElementById('tabKeys').classList.toggle('active', tab === 'keys');
     document.getElementById('tabUsers').classList.toggle('active', tab === 'users');
     document.getElementById('tabDevices').classList.toggle('active', tab === 'devices');
     document.getElementById('tabApi').classList.toggle('active', tab === 'api');
-    
     document.querySelectorAll('.tab').forEach(el => {
         if (el.textContent.toLowerCase().includes(tab)) el.classList.add('active');
     });
