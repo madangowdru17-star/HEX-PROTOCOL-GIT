@@ -1,4 +1,4 @@
-# app.py
+# app.py - Updated with Custom Key Generation
 import os
 import json
 import hashlib
@@ -20,6 +20,7 @@ CORS(app)
 KEYS_FILE = "keys.json"
 USERS_FILE = "users.json"
 DEVICES_FILE = "devices.json"
+ACTIVITY_FILE = "activity.json"
 
 def load_data(filename):
     try:
@@ -54,9 +55,101 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def log_activity(action, details):
+    activity = load_data(ACTIVITY_FILE)
+    activity.append({
+        "timestamp": datetime.now().isoformat(),
+        "action": action,
+        "details": details
+    })
+    save_data(ACTIVITY_FILE, activity)
+
 # =============================================
-# API ENDPOINTS
+# API ENDPOINTS - For Java Application
 # =============================================
+
+@app.route('/api/login', methods=['POST'])
+def login_key():
+    """Login endpoint for Java app - checks key and device"""
+    try:
+        data = request.json
+        key = data.get('key')
+        device = data.get('device') or get_device_id(request)
+        
+        if not key:
+            return jsonify({
+                "success": False,
+                "error": "Key required"
+            }), 400
+        
+        keys = load_data(KEYS_FILE)
+        
+        for k in keys:
+            if k['key'] == key:
+                # Check if key is used
+                if not k['used']:
+                    return jsonify({
+                        "success": False,
+                        "error": "Key not activated",
+                        "status": "INACTIVE"
+                    }), 400
+                
+                # Check device match
+                if k['device'] != device:
+                    return jsonify({
+                        "success": False,
+                        "error": "Device mismatch",
+                        "status": "DEVICE_MISMATCH",
+                        "registered_device": k['device'][:16] + "..."
+                    }), 400
+                
+                # Check expiry
+                expires = datetime.fromisoformat(k['expires'])
+                if expires < datetime.now():
+                    return jsonify({
+                        "success": False,
+                        "error": "Key expired",
+                        "status": "EXPIRED",
+                        "expires": k['expires']
+                    }), 400
+                
+                # Calculate remaining
+                remaining_seconds = (expires - datetime.now()).total_seconds()
+                if k['duration_type'] == 'days':
+                    remaining = int(remaining_seconds / 86400)
+                    remaining_text = f"{remaining} days"
+                else:
+                    remaining = int(remaining_seconds / 3600)
+                    remaining_text = f"{remaining} hours"
+                
+                # Log login
+                log_activity("LOGIN", {
+                    "key": key,
+                    "username": k['used_by'],
+                    "device": device
+                })
+                
+                return jsonify({
+                    "success": True,
+                    "status": "SUCCESS",
+                    "message": "Login successful",
+                    "username": k['used_by'],
+                    "key": key,
+                    "device": device,
+                    "expires": k['expires'],
+                    "remaining": remaining_text,
+                    "remaining_hours": int(remaining_seconds / 3600),
+                    "duration_type": k['duration_type'],
+                    "duration_value": k['duration_value']
+                })
+        
+        return jsonify({
+            "success": False,
+            "error": "Invalid key",
+            "status": "INVALID"
+        }), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/generate', methods=['POST'])
 @admin_required
@@ -87,12 +180,14 @@ def generate_keys():
                 "used": False,
                 "used_by": None,
                 "device": None,
-                "activated": None
+                "activated": None,
+                "status": "ACTIVE"
             }
             keys.append(key_data)
             generated.append(key)
         
         save_data(KEYS_FILE, keys)
+        log_activity("GENERATE", {"count": count, "duration": f"{duration_value} {duration_type}"})
         
         return jsonify({
             "success": True,
@@ -101,6 +196,151 @@ def generate_keys():
             "duration_type": duration_type,
             "duration_value": duration_value,
             "message": f"Generated {count} key(s)"
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+# =============================================
+# NEW: CUSTOM KEY GENERATION
+# =============================================
+
+@app.route('/api/generate/custom', methods=['POST'])
+@admin_required
+def generate_custom_keys():
+    """Generate custom keys - you provide the key values"""
+    try:
+        data = request.json
+        custom_keys = data.get('keys', [])  # List of custom keys
+        duration_type = data.get('duration_type', 'hours')
+        duration_value = int(data.get('duration_value', 24))
+        
+        if not custom_keys:
+            return jsonify({"success": False, "error": "No custom keys provided"}), 400
+        
+        keys = load_data(KEYS_FILE)
+        generated = []
+        duplicates = []
+        
+        for custom_key in custom_keys:
+            # Remove whitespace and convert to uppercase
+            custom_key = custom_key.strip().upper()
+            
+            # Check if key already exists
+            existing = any(k['key'] == custom_key for k in keys)
+            if existing:
+                duplicates.append(custom_key)
+                continue
+            
+            if duration_type == 'days':
+                expires = (datetime.now() + timedelta(days=duration_value)).isoformat()
+            else:
+                expires = (datetime.now() + timedelta(hours=duration_value)).isoformat()
+            
+            key_data = {
+                "key": custom_key,
+                "duration_type": duration_type,
+                "duration_value": duration_value,
+                "created": datetime.now().isoformat(),
+                "expires": expires,
+                "used": False,
+                "used_by": None,
+                "device": None,
+                "activated": None,
+                "status": "ACTIVE",
+                "is_custom": True
+            }
+            keys.append(key_data)
+            generated.append(custom_key)
+        
+        save_data(KEYS_FILE, keys)
+        log_activity("GENERATE_CUSTOM", {
+            "count": len(generated),
+            "duplicates": len(duplicates),
+            "duration": f"{duration_value} {duration_type}"
+        })
+        
+        return jsonify({
+            "success": True,
+            "keys": generated,
+            "duplicates": duplicates,
+            "count": len(generated),
+            "duration_type": duration_type,
+            "duration_value": duration_value,
+            "message": f"Generated {len(generated)} custom key(s)"
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+# =============================================
+# NEW: BULK CUSTOM KEY GENERATION
+# =============================================
+
+@app.route('/api/generate/custom/bulk', methods=['POST'])
+@admin_required
+def generate_custom_keys_bulk():
+    """Generate multiple custom keys from text area"""
+    try:
+        data = request.json
+        key_text = data.get('keys_text', '')  # Newline separated keys
+        duration_type = data.get('duration_type', 'hours')
+        duration_value = int(data.get('duration_value', 24))
+        
+        if not key_text:
+            return jsonify({"success": False, "error": "No keys provided"}), 400
+        
+        # Split by newline and clean
+        custom_keys = [k.strip().upper() for k in key_text.split('\n') if k.strip()]
+        
+        if not custom_keys:
+            return jsonify({"success": False, "error": "No valid keys found"}), 400
+        
+        keys = load_data(KEYS_FILE)
+        generated = []
+        duplicates = []
+        
+        for custom_key in custom_keys:
+            # Check if key already exists
+            existing = any(k['key'] == custom_key for k in keys)
+            if existing:
+                duplicates.append(custom_key)
+                continue
+            
+            if duration_type == 'days':
+                expires = (datetime.now() + timedelta(days=duration_value)).isoformat()
+            else:
+                expires = (datetime.now() + timedelta(hours=duration_value)).isoformat()
+            
+            key_data = {
+                "key": custom_key,
+                "duration_type": duration_type,
+                "duration_value": duration_value,
+                "created": datetime.now().isoformat(),
+                "expires": expires,
+                "used": False,
+                "used_by": None,
+                "device": None,
+                "activated": None,
+                "status": "ACTIVE",
+                "is_custom": True
+            }
+            keys.append(key_data)
+            generated.append(custom_key)
+        
+        save_data(KEYS_FILE, keys)
+        log_activity("GENERATE_CUSTOM_BULK", {
+            "count": len(generated),
+            "duplicates": len(duplicates),
+            "duration": f"{duration_value} {duration_type}"
+        })
+        
+        return jsonify({
+            "success": True,
+            "keys": generated,
+            "duplicates": duplicates,
+            "count": len(generated),
+            "duration_type": duration_type,
+            "duration_value": duration_value,
+            "message": f"Generated {len(generated)} custom key(s)"
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
@@ -123,16 +363,23 @@ def activate_key():
         for k in keys:
             if k['key'] == key:
                 if k['used']:
-                    return jsonify({"error": "Key already used"}), 400
+                    return jsonify({
+                        "error": "Key already used",
+                        "status": "USED"
+                    }), 400
                 
                 expires = datetime.fromisoformat(k['expires'])
                 if expires < datetime.now():
-                    return jsonify({"error": "Key expired"}), 400
+                    return jsonify({
+                        "error": "Key expired",
+                        "status": "EXPIRED"
+                    }), 400
                 
                 k['used'] = True
                 k['used_by'] = username
                 k['device'] = device
                 k['activated'] = datetime.now().isoformat()
+                k['status'] = "ACTIVATED"
                 
                 user_data = {
                     "username": username,
@@ -154,14 +401,16 @@ def activate_key():
                 save_data(KEYS_FILE, keys)
                 save_data(USERS_FILE, users)
                 save_data(DEVICES_FILE, devices)
+                log_activity("ACTIVATE", {"key": key, "username": username, "device": device})
                 
                 return jsonify({
                     "success": True,
-                    "message": "Key activated",
+                    "message": "Key activated successfully",
                     "key": key,
                     "username": username,
                     "device": device,
-                    "expires": k['expires']
+                    "expires": k['expires'],
+                    "status": "ACTIVATED"
                 })
         
         return jsonify({"error": "Invalid key"}), 400
@@ -183,24 +432,52 @@ def verify_key():
         for k in keys:
             if k['key'] == key:
                 if not k['used']:
-                    return jsonify({"valid": False, "error": "Key not activated"}), 400
+                    return jsonify({
+                        "valid": False,
+                        "error": "Key not activated",
+                        "status": "INACTIVE"
+                    }), 400
                 
                 if k['device'] != device:
-                    return jsonify({"valid": False, "error": "Device mismatch"}), 400
+                    return jsonify({
+                        "valid": False,
+                        "error": "Device mismatch",
+                        "status": "DEVICE_MISMATCH"
+                    }), 400
                 
                 expires = datetime.fromisoformat(k['expires'])
                 if expires < datetime.now():
-                    return jsonify({"valid": False, "error": "Key expired"}), 400
+                    return jsonify({
+                        "valid": False,
+                        "error": "Key expired",
+                        "status": "EXPIRED",
+                        "expires": k['expires']
+                    }), 400
+                
+                remaining_seconds = (expires - datetime.now()).total_seconds()
+                if k['duration_type'] == 'days':
+                    remaining = int(remaining_seconds / 86400)
+                    remaining_text = f"{remaining} days"
+                else:
+                    remaining = int(remaining_seconds / 3600)
+                    remaining_text = f"{remaining} hours"
                 
                 return jsonify({
                     "valid": True,
+                    "status": "VALID",
                     "key": key,
                     "username": k['used_by'],
                     "device": k['device'],
-                    "expires": k['expires']
+                    "expires": k['expires'],
+                    "remaining": remaining_text,
+                    "remaining_hours": int(remaining_seconds / 3600)
                 })
         
-        return jsonify({"valid": False, "error": "Invalid key"}), 400
+        return jsonify({
+            "valid": False,
+            "error": "Invalid key",
+            "status": "INVALID"
+        }), 400
     except Exception as e:
         return jsonify({"valid": False, "error": str(e)}), 400
 
@@ -217,16 +494,22 @@ def get_stats():
     try:
         keys = load_data(KEYS_FILE)
         users = load_data(USERS_FILE)
+        devices = load_data(DEVICES_FILE)
         
         total = len(keys)
         used = sum(1 for k in keys if k.get('used', False))
         active = total - used
+        expired = sum(1 for k in keys if datetime.fromisoformat(k['expires']) < datetime.now())
+        custom = sum(1 for k in keys if k.get('is_custom', False))
         
         return jsonify({
             "total_keys": total,
             "used_keys": used,
             "active_keys": active,
-            "total_users": len(users)
+            "expired_keys": expired,
+            "custom_keys": custom,
+            "total_users": len(users),
+            "total_devices": len(devices)
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -235,7 +518,23 @@ def get_stats():
 @admin_required
 def list_keys():
     try:
-        return jsonify(load_data(KEYS_FILE))
+        keys = load_data(KEYS_FILE)
+        for k in keys:
+            expires = datetime.fromisoformat(k['expires'])
+            if k.get('used', False):
+                if expires < datetime.now():
+                    k['status_display'] = "EXPIRED"
+                else:
+                    k['status_display'] = "ACTIVE"
+            else:
+                if expires < datetime.now():
+                    k['status_display'] = "EXPIRED"
+                else:
+                    k['status_display'] = "UNUSED"
+            
+            if k.get('is_custom', False):
+                k['status_display'] += " ✏️"
+        return jsonify(keys)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
@@ -255,6 +554,14 @@ def list_devices():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
+@app.route('/api/activity', methods=['GET'])
+@admin_required
+def list_activity():
+    try:
+        return jsonify(load_data(ACTIVITY_FILE))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
 @app.route('/api/delete/<key>', methods=['DELETE'])
 @admin_required
 def delete_key(key):
@@ -262,6 +569,7 @@ def delete_key(key):
         keys = load_data(KEYS_FILE)
         keys = [k for k in keys if k['key'] != key]
         save_data(KEYS_FILE, keys)
+        log_activity("DELETE", {"key": key})
         return jsonify({"success": True, "message": "Key deleted"})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -273,6 +581,8 @@ def clear_all():
         save_data(KEYS_FILE, [])
         save_data(USERS_FILE, [])
         save_data(DEVICES_FILE, [])
+        save_data(ACTIVITY_FILE, [])
+        log_activity("CLEAR_ALL", {})
         return jsonify({"success": True, "message": "All data cleared"})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -287,6 +597,7 @@ def admin_login():
         data = request.json
         if data.get('password') == 'admin123':
             session['admin'] = True
+            log_activity("ADMIN_LOGIN", {})
             return jsonify({"success": True})
         return jsonify({"success": False}), 401
     except Exception as e:
@@ -295,6 +606,7 @@ def admin_login():
 @app.route('/admin/logout')
 def admin_logout():
     session.pop('admin', None)
+    log_activity("ADMIN_LOGOUT", {})
     return jsonify({"success": True})
 
 # =============================================
@@ -307,31 +619,41 @@ HTML = '''
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HEX KEY SYSTEM</title>
+    <title>HEX KEY SYSTEM PREMIUM</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: #fff; min-height: 100vh; }
-        .header { background: linear-gradient(135deg, #00ff88, #00cc66); padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; }
+        .header { background: linear-gradient(135deg, #00ff88, #00cc66); padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
         .header h1 { color: #0a0a0a; font-size: 24px; }
         .header h1 i { margin-right: 10px; }
         .badge { background: #0a0a0a; color: #00ff88; padding: 5px 15px; border-radius: 20px; font-size: 12px; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 30px; }
-        .stat { background: #111; border: 1px solid #222; border-radius: 12px; padding: 20px; text-align: center; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .stat { background: #111; border: 1px solid #222; border-radius: 12px; padding: 20px; text-align: center; transition: 0.3s; }
+        .stat:hover { border-color: #00ff88; transform: translateY(-3px); }
         .stat .num { font-size: 32px; font-weight: 900; color: #00ff88; }
         .stat .label { color: #666; font-size: 12px; text-transform: uppercase; margin-top: 5px; }
+        .stat .sub { font-size: 11px; color: #444; margin-top: 3px; }
         .panel { background: #111; border: 1px solid #222; border-radius: 12px; padding: 25px; margin-bottom: 25px; }
         .panel h3 { color: #00ff88; margin-bottom: 15px; }
         .panel h3 i { margin-right: 10px; }
+        .panel h3 .custom-badge { font-size: 12px; color: #ffaa00; background: #1a1a1a; padding: 2px 12px; border-radius: 12px; margin-left: 10px; }
         .input-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
         .input-group input, .input-group select { padding: 10px 15px; background: #1a1a1a; border: 2px solid #222; border-radius: 8px; color: #fff; font-size: 14px; flex: 1; min-width: 80px; }
         .input-group input:focus, .input-group select:focus { outline: none; border-color: #00ff88; }
+        .input-group textarea { padding: 10px 15px; background: #1a1a1a; border: 2px solid #222; border-radius: 8px; color: #fff; font-size: 13px; flex: 1; min-width: 200px; font-family: monospace; resize: vertical; }
+        .input-group textarea:focus { outline: none; border-color: #00ff88; }
         .btn { padding: 10px 25px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.3s; }
         .btn-primary { background: #00ff88; color: #0a0a0a; }
-        .btn-primary:hover { transform: scale(1.05); }
+        .btn-primary:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(0,255,136,0.3); }
+        .btn-custom { background: #ffaa00; color: #0a0a0a; }
+        .btn-custom:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,170,0,0.3); }
         .btn-danger { background: #ff4444; color: #fff; }
         .btn-danger:hover { transform: scale(1.05); }
+        .btn-outline { background: transparent; border: 2px solid #222; color: #fff; }
+        .btn-outline:hover { border-color: #00ff88; color: #00ff88; }
+        .btn-sm { padding: 5px 12px; font-size: 11px; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th { text-align: left; padding: 10px; color: #666; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid #222; }
         td { padding: 10px; border-bottom: 1px solid #1a1a1a; font-size: 13px; }
@@ -339,6 +661,8 @@ HTML = '''
         .status-active { color: #00ff88; }
         .status-used { color: #ffaa00; }
         .status-expired { color: #ff4444; }
+        .status-inactive { color: #666; }
+        .custom-tag { background: #ffaa00; color: #0a0a0a; padding: 1px 8px; border-radius: 10px; font-size: 9px; font-weight: 700; }
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
         .tab { padding: 8px 20px; background: #1a1a1a; border: 2px solid #222; border-radius: 8px; color: #666; cursor: pointer; transition: 0.3s; }
         .tab.active { border-color: #00ff88; color: #00ff88; background: #0a0a0a; }
@@ -355,9 +679,10 @@ HTML = '''
         .toast { position: fixed; bottom: 30px; right: 30px; padding: 12px 24px; border-radius: 8px; font-weight: 600; z-index: 10000; animation: slideIn 0.5s; }
         .toast-success { background: #00cc66; color: #0a0a0a; }
         .toast-error { background: #ff4444; color: #fff; }
+        .toast-info { background: #3399ff; color: #fff; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .footer { text-align: center; padding: 20px; color: #444; font-size: 12px; border-top: 1px solid #111; margin-top: 20px; }
-        .key-display { background: #0a0a0a; border: 2px solid #222; border-radius: 8px; padding: 15px; font-family: monospace; font-size: 18px; color: #00ff88; margin: 10px 0; }
+        .key-display { background: #0a0a0a; border: 2px solid #222; border-radius: 8px; padding: 15px; font-family: monospace; font-size: 18px; color: #00ff88; margin: 10px 0; display: inline-block; }
         .copy-btn { background: none; border: none; color: #00ff88; cursor: pointer; margin-left: 10px; }
         .copy-btn:hover { color: #fff; }
         .duration-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
@@ -368,7 +693,12 @@ HTML = '''
         .scrollable::-webkit-scrollbar-track { background: #0a0a0a; }
         .scrollable::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
         .scrollable::-webkit-scrollbar-thumb:hover { background: #00ff88; }
-        @media (max-width: 768px) { .header { flex-direction: column; gap: 10px; padding: 15px; } .stats { grid-template-columns: repeat(2, 1fr); } .input-group { flex-direction: column; } .input-group input, .input-group select { width: 100%; } }
+        .device-hash { font-family: monospace; font-size: 10px; color: #666; }
+        .api-example { background: #0a0a0a; padding: 15px; border-radius: 8px; border: 1px solid #222; font-family: monospace; font-size: 13px; color: #aaa; margin: 10px 0; }
+        .api-example .method { color: #00ff88; }
+        .api-example .key { color: #ffaa00; }
+        .section-divider { border-top: 1px solid #222; margin: 20px 0; }
+        @media (max-width: 768px) { .header { flex-direction: column; gap: 10px; padding: 15px; } .stats { grid-template-columns: repeat(2, 1fr); } .input-group { flex-direction: column; } .input-group input, .input-group select, .input-group textarea { width: 100%; } }
     </style>
 </head>
 <body>
@@ -383,18 +713,22 @@ HTML = '''
 </div>
 <div id="main" style="display:none;">
     <div class="header">
-        <h1><i class="fas fa-key"></i> HEX KEY SYSTEM</h1>
-        <span class="badge"><i class="fas fa-bolt"></i> PREMIUM</span>
+        <h1><i class="fas fa-crown"></i> HEX KEY SYSTEM PREMIUM</h1>
+        <span class="badge"><i class="fas fa-bolt"></i> v2.1</span>
     </div>
     <div class="container">
         <div class="stats" id="stats">
             <div class="stat"><div class="num" id="totalKeys">0</div><div class="label">Total Keys</div></div>
             <div class="stat"><div class="num" id="activeKeys">0</div><div class="label">Active Keys</div></div>
             <div class="stat"><div class="num" id="usedKeys">0</div><div class="label">Used Keys</div></div>
+            <div class="stat"><div class="num" id="expiredKeys">0</div><div class="label">Expired Keys</div></div>
+            <div class="stat"><div class="num" id="customKeys">0</div><div class="label">Custom Keys</div></div>
             <div class="stat"><div class="num" id="totalUsers">0</div><div class="label">Users</div></div>
         </div>
+
+        <!-- AUTO GENERATE SECTION -->
         <div class="panel">
-            <h3><i class="fas fa-plus-circle"></i> Generate Keys</h3>
+            <h3><i class="fas fa-robot"></i> Auto Generate Keys</h3>
             <div class="input-group">
                 <input type="number" id="keyCount" value="1" min="1" max="50" style="max-width:80px;">
                 <input type="number" id="durationValue" value="24" min="1" max="9999" style="max-width:100px;">
@@ -406,12 +740,38 @@ HTML = '''
             </div>
             <div id="generatedKeys"></div>
         </div>
+
+        <!-- CUSTOM KEY SECTION -->
+        <div class="panel" style="border-color: #ffaa00;">
+            <h3><i class="fas fa-pen"></i> Custom Key Generation <span class="custom-badge">✏️ YOUR KEYS</span></h3>
+            
+            <div style="margin-bottom: 10px;">
+                <label style="color:#888; font-size:12px;">Enter your custom keys (one per line)</label>
+            </div>
+            <div class="input-group">
+                <textarea id="customKeysText" rows="4" placeholder="MYKEY123&#10;VIPKEY456&#10;PREMIUM789" style="flex:2;"></textarea>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:1; min-width:150px;">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <input type="number" id="customDurationValue" value="24" min="1" max="9999" style="flex:1; min-width:60px;">
+                        <select id="customDurationType" style="flex:1; min-width:80px;">
+                            <option value="hours">Hours</option>
+                            <option value="days">Days</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-custom" onclick="generateCustomKeys()"><i class="fas fa-plus"></i> Add Custom Keys</button>
+                </div>
+            </div>
+            <div id="customGeneratedKeys"></div>
+        </div>
+
+        <!-- TAB SECTION -->
         <div class="panel">
             <div class="tabs">
                 <div class="tab active" onclick="switchTab('keys')"><i class="fas fa-keys"></i> Keys</div>
                 <div class="tab" onclick="switchTab('users')"><i class="fas fa-users"></i> Users</div>
                 <div class="tab" onclick="switchTab('devices')"><i class="fas fa-laptop"></i> Devices</div>
                 <div class="tab" onclick="switchTab('api')"><i class="fas fa-code"></i> API</div>
+                <div class="tab" onclick="switchTab('activity')"><i class="fas fa-history"></i> Activity</div>
             </div>
             <div id="tabKeys" class="tab-content active">
                 <div class="scrollable">
@@ -439,31 +799,43 @@ HTML = '''
             </div>
             <div id="tabApi" class="tab-content">
                 <div style="background:#0a0a0a; padding:20px; border-radius:8px; border:1px solid #222;">
-                    <h4 style="color:#00ff88;">API Endpoints for Java Injector</h4>
-                    <div style="margin:15px 0; padding:15px; background:#000; border-radius:6px; font-family:monospace; font-size:13px; color:#aaa;">
-                        <p><span style="color:#00ff88;">POST</span> /api/generate - Generate keys</p>
-                        <p><span style="color:#ffaa00;">POST</span> /api/activate - Activate key with device</p>
-                        <p><span style="color:#ffaa00;">POST</span> /api/verify - Verify key and device</p>
-                        <p><span style="color:#00ff88;">GET</span> /api/check?key=KEY&device=DEVICE - Quick check</p>
-                        <p><span style="color:#00ff88;">GET</span> /api/stats - System statistics</p>
+                    <h4 style="color:#00ff88;"><i class="fas fa-plug"></i> API Endpoints for Java App</h4>
+                    <div class="api-example">
+                        <p><span class="method">POST</span> /api/login - Login with key and device</p>
+                        <p><span class="method">POST</span> /api/generate - Auto generate keys (admin)</p>
+                        <p><span class="method">POST</span> /api/generate/custom - <span style="color:#ffaa00;">NEW: Add custom keys</span></p>
+                        <p><span class="method">POST</span> /api/generate/custom/bulk - Bulk custom keys</p>
+                        <p><span class="method">POST</span> /api/activate - Activate key with device</p>
+                        <p><span class="method">POST</span> /api/verify - Verify key and device</p>
+                        <p><span class="method">GET</span> /api/check?key=KEY&device=DEVICE - Quick check</p>
+                        <p><span class="method">GET</span> /api/stats - System statistics</p>
                     </div>
                     <div style="margin-top:15px; background:#0a0a0a; padding:15px; border-radius:6px; border:1px solid #222;">
-                        <p style="color:#888; font-size:13px;"><strong>Activate Example:</strong></p>
-                        <pre style="color:#00ff88; font-size:12px; background:#000; padding:10px; border-radius:4px;">
+                        <p style="color:#888; font-size:13px;"><strong>Custom Key Example:</strong></p>
+                        <pre style="color:#ffaa00; font-size:12px; background:#000; padding:10px; border-radius:4px; overflow-x:auto;">
+POST /api/generate/custom
 {
-  "key": "ABCDEFGHIJKLMNOP",
-  "username": "player123",
-  "device": "device_fingerprint"
+  "keys": ["MYKEY123", "VIP456", "PREMIUM789"],
+  "duration_type": "days",
+  "duration_value": 30
 }</pre>
                     </div>
-                    <div style="margin-top:10px;">
+                    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
                         <button class="btn btn-danger" onclick="clearAll()"><i class="fas fa-trash"></i> Clear All Data</button>
                     </div>
                 </div>
             </div>
+            <div id="tabActivity" class="tab-content">
+                <div class="scrollable">
+                    <table>
+                        <thead><tr><th>Time</th><th>Action</th><th>Details</th></tr></thead>
+                        <tbody id="activityTable"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
         <div class="footer">
-            <i class="fas fa-key" style="color:#00ff88;"></i> HEX KEY SYSTEM &bull; 
+            <i class="fas fa-crown" style="color:#00ff88;"></i> HEX KEY SYSTEM PREMIUM &bull; 
             <a href="#" onclick="logout()" style="color:#00ff88; text-decoration:none;">Logout</a>
         </div>
     </div>
@@ -497,7 +869,7 @@ function logout() {
     });
 }
 
-function loadAll() { loadStats(); loadKeys(); loadUsers(); loadDevices(); }
+function loadAll() { loadStats(); loadKeys(); loadUsers(); loadDevices(); loadActivity(); }
 
 function loadStats() {
     fetch('/api/stats')
@@ -506,6 +878,8 @@ function loadStats() {
         document.getElementById('totalKeys').textContent = data.total_keys || 0;
         document.getElementById('activeKeys').textContent = data.active_keys || 0;
         document.getElementById('usedKeys').textContent = data.used_keys || 0;
+        document.getElementById('expiredKeys').textContent = data.expired_keys || 0;
+        document.getElementById('customKeys').textContent = data.custom_keys || 0;
         document.getElementById('totalUsers').textContent = data.total_users || 0;
     })
     .catch(() => console.log('Stats load error'));
@@ -522,23 +896,29 @@ function loadKeys() {
             return;
         }
         data.forEach(k => {
-            const used = k.used || false;
-            const expired = new Date(k.expires) < new Date();
-            let statusText = 'ACTIVE', statusCls = 'status-active';
-            if (used) { statusText = 'USED'; statusCls = 'status-used'; }
-            if (expired && !used) { statusText = 'EXPIRED'; statusCls = 'status-expired'; }
+            const status = k.status_display || 'UNKNOWN';
+            let statusClass = 'status-inactive';
+            if (status.includes('ACTIVE')) statusClass = 'status-active';
+            else if (status.includes('UNUSED')) statusClass = 'status-active';
+            else if (status.includes('EXPIRED')) statusClass = 'status-expired';
+            else if (status.includes('USED')) statusClass = 'status-used';
+            
+            const isCustom = k.is_custom || false;
+            const customTag = isCustom ? '<span class="custom-tag">✏️</span>' : '';
+            
             const durationDisplay = k.duration_type === 'days' 
                 ? `<span class="duration-badge duration-days">${k.duration_value}d</span>`
                 : `<span class="duration-badge duration-hours">${k.duration_value}h</span>`;
+            
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td style="font-family:monospace; font-size:12px;">${k.key}</td>
+                <td style="font-family:monospace; font-size:12px;">${k.key} ${customTag}</td>
                 <td>${durationDisplay}</td>
-                <td class="${statusCls}">${statusText}</td>
+                <td class="${statusClass}">${status}</td>
                 <td>${k.used_by || '-'}</td>
                 <td style="font-family:monospace; font-size:10px;">${k.device ? k.device.substring(0,16)+'...' : '-'}</td>
-                <td style="font-size:11px;">${new Date(k.expires).toLocaleDateString()}</td>
-                <td><button class="btn btn-danger" style="padding:4px 12px; font-size:11px;" onclick="deleteKey('${k.key}')"><i class="fas fa-trash"></i></button></td>
+                <td style="font-size:11px;">${new Date(k.expires).toLocaleString()}</td>
+                <td><button class="btn btn-danger btn-sm" onclick="deleteKey('${k.key}')"><i class="fas fa-trash"></i></button></td>
             `;
             tbody.appendChild(tr);
         });
@@ -565,7 +945,7 @@ function loadUsers() {
                 <td style="font-family:monospace; font-size:11px;">${u.key}</td>
                 <td style="font-family:monospace; font-size:10px;">${u.device ? u.device.substring(0,16)+'...' : '-'}</td>
                 <td style="font-size:11px;">${new Date(u.activated).toLocaleString()}</td>
-                <td style="font-size:11px;">${new Date(u.expires).toLocaleDateString()}</td>
+                <td style="font-size:11px;">${new Date(u.expires).toLocaleString()}</td>
                 <td style="color:${expired ? '#ff4444' : '#00ff88'}; font-weight:600;">${remaining}</td>
             `;
             tbody.appendChild(tr);
@@ -598,6 +978,30 @@ function loadDevices() {
     .catch(() => console.log('Devices load error'));
 }
 
+function loadActivity() {
+    fetch('/api/activity')
+    .then(res => res.json())
+    .then(data => {
+        const tbody = document.getElementById('activityTable');
+        tbody.innerHTML = '';
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#444; padding:20px;">No activity yet</td></tr>';
+            return;
+        }
+        data.slice(-20).reverse().forEach(a => {
+            const tr = document.createElement('tr');
+            const details = typeof a.details === 'string' ? a.details : JSON.stringify(a.details);
+            tr.innerHTML = `
+                <td style="font-size:11px;">${new Date(a.timestamp).toLocaleString()}</td>
+                <td><span class="status-active">${a.action}</span></td>
+                <td style="font-size:12px; color:#888;">${details}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    })
+    .catch(() => console.log('Activity load error'));
+}
+
 function getRemaining(expires) {
     const diff = new Date(expires) - new Date();
     if (diff <= 0) return 'EXPIRED';
@@ -607,6 +1011,7 @@ function getRemaining(expires) {
     return `${hours}h`;
 }
 
+// AUTO GENERATE
 function generateKeys() {
     const count = document.getElementById('keyCount').value || 1;
     const durationValue = document.getElementById('durationValue').value || 24;
@@ -626,13 +1031,64 @@ function generateKeys() {
         if (data.success) {
             let html = '<div style="margin-top:15px; display:flex; flex-wrap:wrap; gap:10px;">';
             data.keys.forEach(k => {
-                html += `<div class="key-display" style="display:inline-block; padding:10px 15px; font-size:14px;">
-                    ${k} <button class="copy-btn" onclick="copyKey('${k}')"><i class="fas fa-copy"></i></button>
-                </div>`;
+                html += `<div class="key-display">${k} <button class="copy-btn" onclick="copyKey('${k}')"><i class="fas fa-copy"></i></button></div>`;
             });
             html += '</div>';
             document.getElementById('generatedKeys').innerHTML = html;
             toast(`Generated ${data.count} key(s)`, 'success');
+            loadAll();
+        } else {
+            toast('Generation failed: ' + (data.error || 'Unknown error'), 'error');
+        }
+    })
+    .catch(err => {
+        toast('Generation error: ' + err.message, 'error');
+        console.error(err);
+    });
+}
+
+// CUSTOM GENERATE
+function generateCustomKeys() {
+    const keysText = document.getElementById('customKeysText').value;
+    const durationValue = document.getElementById('customDurationValue').value || 24;
+    const durationType = document.getElementById('customDurationType').value;
+
+    if (!keysText.trim()) {
+        toast('Please enter at least one custom key', 'error');
+        return;
+    }
+
+    // Split by newline and clean
+    const keys = keysText.split('\\n').map(k => k.trim().toUpperCase()).filter(k => k);
+
+    if (keys.length === 0) {
+        toast('No valid keys found', 'error');
+        return;
+    }
+
+    fetch('/api/generate/custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            keys: keys,
+            duration_value: parseInt(durationValue),
+            duration_type: durationType
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            let html = '<div style="margin-top:15px; display:flex; flex-wrap:wrap; gap:10px;">';
+            data.keys.forEach(k => {
+                html += `<div class="key-display" style="border-color:#ffaa00;">${k} <span class="custom-tag">✏️</span> <button class="copy-btn" onclick="copyKey('${k}')"><i class="fas fa-copy"></i></button></div>`;
+            });
+            if (data.duplicates && data.duplicates.length > 0) {
+                html += `<div style="color:#ffaa00; font-size:12px; margin-top:10px;">⚠️ Duplicates skipped: ${data.duplicates.join(', ')}</div>`;
+            }
+            html += '</div>';
+            document.getElementById('customGeneratedKeys').innerHTML = html;
+            document.getElementById('customKeysText').value = '';
+            toast(`Added ${data.count} custom key(s)`, 'success');
             loadAll();
         } else {
             toast('Generation failed: ' + (data.error || 'Unknown error'), 'error');
@@ -673,6 +1129,7 @@ function switchTab(tab) {
     document.getElementById('tabUsers').classList.toggle('active', tab === 'users');
     document.getElementById('tabDevices').classList.toggle('active', tab === 'devices');
     document.getElementById('tabApi').classList.toggle('active', tab === 'api');
+    document.getElementById('tabActivity').classList.toggle('active', tab === 'activity');
     document.querySelectorAll('.tab').forEach(el => {
         if (el.textContent.toLowerCase().includes(tab)) el.classList.add('active');
     });
