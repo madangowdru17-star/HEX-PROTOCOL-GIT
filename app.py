@@ -1,4 +1,4 @@
-# app.py - Complete Working Key System for Railway
+# app.py
 import os
 import json
 import hashlib
@@ -100,7 +100,7 @@ def generate_keys():
             "count": count,
             "duration_type": duration_type,
             "duration_value": duration_value,
-            "message": f"Generated {count} key(s) for {duration_value} {duration_type}"
+            "message": f"Generated {count} key(s)"
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
@@ -155,20 +155,13 @@ def activate_key():
                 save_data(USERS_FILE, users)
                 save_data(DEVICES_FILE, devices)
                 
-                remaining_seconds = (expires - datetime.now()).total_seconds()
-                if k['duration_type'] == 'days':
-                    remaining = f"{int(remaining_seconds / 86400)} days"
-                else:
-                    remaining = f"{int(remaining_seconds / 3600)} hours"
-                
                 return jsonify({
                     "success": True,
                     "message": "Key activated",
                     "key": key,
                     "username": username,
                     "device": device,
-                    "expires": k['expires'],
-                    "remaining": remaining
+                    "expires": k['expires']
                 })
         
         return jsonify({"error": "Invalid key"}), 400
@@ -199,19 +192,12 @@ def verify_key():
                 if expires < datetime.now():
                     return jsonify({"valid": False, "error": "Key expired"}), 400
                 
-                remaining_seconds = (expires - datetime.now()).total_seconds()
-                if k['duration_type'] == 'days':
-                    remaining = f"{int(remaining_seconds / 86400)} days"
-                else:
-                    remaining = f"{int(remaining_seconds / 3600)} hours"
-                
                 return jsonify({
                     "valid": True,
                     "key": key,
                     "username": k['used_by'],
                     "device": k['device'],
-                    "expires": k['expires'],
-                    "remaining": remaining
+                    "expires": k['expires']
                 })
         
         return jsonify({"valid": False, "error": "Invalid key"}), 400
@@ -646,7 +632,7 @@ function generateKeys() {
             });
             html += '</div>';
             document.getElementById('generatedKeys').innerHTML = html;
-            toast(`Generated ${data.count} key(s) for ${data.duration_value} ${data.duration_type}`, 'success');
+            toast(`Generated ${data.count} key(s)`, 'success');
             loadAll();
         } else {
             toast('Generation failed: ' + (data.error || 'Unknown error'), 'error');
