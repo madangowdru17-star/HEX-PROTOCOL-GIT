@@ -1,3 +1,4 @@
+# hex_app.py - Complete Fixed Key System
 import os
 import json
 import hashlib
@@ -19,12 +20,13 @@ CORS(app)
 
 KEYS_FILE = "keys.json"
 USERS_FILE = "users.json"
+DEVICES_FILE = "devices.json"
 
 def load_data(filename):
     try:
         with open(filename, 'r') as f:
             return json.load(f)
-    except:
+    except (FileNotFoundError, json.JSONDecodeError):
         return []
 
 def save_data(filename, data):
@@ -56,33 +58,41 @@ def admin_required(f):
     return decorated
 
 # =============================================
-# API ENDPOINTS - FOR JAVA INJECTOR
+# API ENDPOINTS
 # =============================================
 
 @app.route('/api/generate', methods=['POST'])
 @admin_required
 def generate_keys():
-    """Generate new keys with custom hours"""
+    """Generate new keys with custom hours or days"""
     data = request.json
-    count = data.get('count', 1)
-    hours = data.get('hours', 24)
+    count = int(data.get('count', 1))
+    duration_type = data.get('duration_type', 'hours')  # 'hours' or 'days'
+    duration_value = int(data.get('duration_value', 24))
     
     keys = load_data(KEYS_FILE)
     generated = []
     
     for i in range(count):
         key = generate_key()
-        expires = (datetime.now() + timedelta(hours=hours)).isoformat()
+        
+        # Calculate expiry
+        if duration_type == 'days':
+            expires = (datetime.now() + timedelta(days=duration_value)).isoformat()
+        else:
+            expires = (datetime.now() + timedelta(hours=duration_value)).isoformat()
         
         key_data = {
             "key": key,
-            "hours": hours,
+            "duration_type": duration_type,
+            "duration_value": duration_value,
             "created": datetime.now().isoformat(),
             "expires": expires,
             "used": False,
             "used_by": None,
             "device": None,
-            "activated": None
+            "activated": None,
+            "type": data.get('type', 'premium')
         }
         keys.append(key_data)
         generated.append(key)
@@ -93,13 +103,14 @@ def generate_keys():
         "success": True,
         "keys": generated,
         "count": count,
-        "hours": hours,
-        "message": f"Generated {count} key(s) for {hours} hours"
+        "duration_type": duration_type,
+        "duration_value": duration_value,
+        "message": f"Generated {count} key(s) for {duration_value} {duration_type}"
     })
 
 @app.route('/api/activate', methods=['POST'])
 def activate_key():
-    """Activate a key for a device"""
+    """Activate a key with device binding"""
     data = request.json
     key = data.get('key')
     username = data.get('username', 'user')
@@ -110,6 +121,7 @@ def activate_key():
     
     keys = load_data(KEYS_FILE)
     users = load_data(USERS_FILE)
+    devices = load_data(DEVICES_FILE)
     
     # Find and validate key
     for k in keys:
@@ -138,8 +150,25 @@ def activate_key():
             }
             users.append(user_data)
             
+            # Save device
+            device_data = {
+                "device_id": device,
+                "username": username,
+                "key": key,
+                "registered": datetime.now().isoformat()
+            }
+            devices.append(device_data)
+            
             save_data(KEYS_FILE, keys)
             save_data(USERS_FILE, users)
+            save_data(DEVICES_FILE, devices)
+            
+            # Calculate remaining
+            remaining_seconds = (expires - datetime.now()).total_seconds()
+            if k['duration_type'] == 'days':
+                remaining = f"{int(remaining_seconds / 86400)} days"
+            else:
+                remaining = f"{int(remaining_seconds / 3600)} hours"
             
             return jsonify({
                 "success": True,
@@ -148,7 +177,9 @@ def activate_key():
                 "username": username,
                 "device": device,
                 "expires": k['expires'],
-                "remaining_hours": int((expires - datetime.now()).total_seconds() / 3600)
+                "remaining": remaining,
+                "duration_type": k['duration_type'],
+                "duration_value": k['duration_value']
             })
     
     return jsonify({"error": "Invalid key"}), 400
@@ -164,9 +195,7 @@ def verify_key():
         return jsonify({"error": "Key required"}), 400
     
     keys = load_data(KEYS_FILE)
-    users = load_data(USERS_FILE)
     
-    # Check if key exists and is used
     for k in keys:
         if k['key'] == key:
             if not k['used']:
@@ -190,13 +219,22 @@ def verify_key():
                     "error": "Key expired"
                 }), 400
             
+            # Calculate remaining
+            remaining_seconds = (expires - datetime.now()).total_seconds()
+            if k['duration_type'] == 'days':
+                remaining = f"{int(remaining_seconds / 86400)} days"
+            else:
+                remaining = f"{int(remaining_seconds / 3600)} hours"
+            
             return jsonify({
                 "valid": True,
                 "key": key,
                 "username": k['used_by'],
                 "device": k['device'],
                 "expires": k['expires'],
-                "remaining_hours": int((expires - datetime.now()).total_seconds() / 3600)
+                "remaining": remaining,
+                "duration_type": k['duration_type'],
+                "duration_value": k['duration_value']
             })
     
     return jsonify({"valid": False, "error": "Invalid key"}), 400
@@ -210,7 +248,12 @@ def check_key():
     if not key:
         return jsonify({"error": "Key required"}), 400
     
-    # Use the verify logic
+    # Create a mock request for verify
+    class MockRequest:
+        def __init__(self, device):
+            self.json = {"key": key, "device": device}
+            self.args = {"key": key, "device": device}
+    
     return verify_key()
 
 @app.route('/api/stats', methods=['GET'])
@@ -242,6 +285,12 @@ def list_users():
     """List all users (admin only)"""
     return jsonify(load_data(USERS_FILE))
 
+@app.route('/api/devices', methods=['GET'])
+@admin_required
+def list_devices():
+    """List all devices (admin only)"""
+    return jsonify(load_data(DEVICES_FILE))
+
 @app.route('/api/delete/<key>', methods=['DELETE'])
 @admin_required
 def delete_key(key):
@@ -250,6 +299,15 @@ def delete_key(key):
     keys = [k for k in keys if k['key'] != key]
     save_data(KEYS_FILE, keys)
     return jsonify({"success": True, "message": "Key deleted"})
+
+@app.route('/api/clear', methods=['DELETE'])
+@admin_required
+def clear_all():
+    """Clear all data"""
+    save_data(KEYS_FILE, [])
+    save_data(USERS_FILE, [])
+    save_data(DEVICES_FILE, [])
+    return jsonify({"success": True, "message": "All data cleared"})
 
 # =============================================
 # ADMIN PANEL UI
@@ -429,12 +487,29 @@ HTML = '''
         }
         .copy-btn { background: none; border: none; color: #00ff88; cursor: pointer; margin-left: 10px; }
         .copy-btn:hover { color: #fff; }
+        .duration-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .duration-hours { background: #1a3a2a; color: #00ff88; }
+        .duration-days { background: #1a2a3a; color: #66aaff; }
         @media (max-width: 768px) {
             .header { flex-direction: column; gap: 10px; padding: 15px; }
             .stats { grid-template-columns: repeat(2, 1fr); }
             .input-group { flex-direction: column; }
             .input-group input, .input-group select { width: 100%; }
         }
+        .scrollable {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .scrollable::-webkit-scrollbar { width: 6px; }
+        .scrollable::-webkit-scrollbar-track { background: #0a0a0a; }
+        .scrollable::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+        .scrollable::-webkit-scrollbar-thumb:hover { background: #00ff88; }
     </style>
 </head>
 <body>
@@ -466,9 +541,13 @@ HTML = '''
         <div class="panel">
             <h3><i class="fas fa-plus-circle"></i> Generate Keys</h3>
             <div class="input-group">
-                <input type="number" id="keyCount" value="1" min="1" max="50">
-                <input type="number" id="keyHours" value="24" min="1" max="9999" placeholder="Hours">
-                <select id="keyType">
+                <input type="number" id="keyCount" value="1" min="1" max="50" style="max-width:80px;">
+                <input type="number" id="durationValue" value="24" min="1" max="9999" style="max-width:100px;">
+                <select id="durationType" style="max-width:120px;">
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                </select>
+                <select id="keyType" style="max-width:120px;">
                     <option value="premium">Premium</option>
                     <option value="vip">VIP</option>
                     <option value="standard">Standard</option>
@@ -482,15 +561,17 @@ HTML = '''
             <div class="tabs">
                 <div class="tab active" onclick="switchTab('keys')"><i class="fas fa-keys"></i> Keys</div>
                 <div class="tab" onclick="switchTab('users')"><i class="fas fa-users"></i> Users</div>
-                <div class="tab" onclick="switchTab('api')"><i class="fas fa-code"></i> API Docs</div>
+                <div class="tab" onclick="switchTab('devices')"><i class="fas fa-laptop"></i> Devices</div>
+                <div class="tab" onclick="switchTab('api')"><i class="fas fa-code"></i> API</div>
             </div>
 
             <div id="tabKeys" class="tab-content active">
-                <div style="overflow-x:auto;">
+                <div class="scrollable">
                     <table>
                         <thead><tr>
                             <th>Key</th>
-                            <th>Hours</th>
+                            <th>Duration</th>
+                            <th>Type</th>
                             <th>Status</th>
                             <th>User</th>
                             <th>Device</th>
@@ -503,7 +584,7 @@ HTML = '''
             </div>
 
             <div id="tabUsers" class="tab-content">
-                <div style="overflow-x:auto;">
+                <div class="scrollable">
                     <table>
                         <thead><tr>
                             <th>Username</th>
@@ -511,8 +592,23 @@ HTML = '''
                             <th>Device</th>
                             <th>Activated</th>
                             <th>Expires</th>
+                            <th>Remaining</th>
                         </tr></thead>
                         <tbody id="usersTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="tabDevices" class="tab-content">
+                <div class="scrollable">
+                    <table>
+                        <thead><tr>
+                            <th>Device ID</th>
+                            <th>Username</th>
+                            <th>Key</th>
+                            <th>Registered</th>
+                        </tr></thead>
+                        <tbody id="devicesTable"></tbody>
                     </table>
                 </div>
             </div>
@@ -531,12 +627,15 @@ HTML = '''
                         <p style="color:#888; font-size:13px;">
                             <strong>Activate Example:</strong>
                         </p>
-                        <pre style="color:#00ff88; font-size:12px;">
+                        <pre style="color:#00ff88; font-size:12px; background:#000; padding:10px; border-radius:4px;">
 {
   "key": "ABCDEFGHIJKLMNOP",
   "username": "player123",
   "device": "device_fingerprint"
 }</pre>
+                    </div>
+                    <div style="margin-top:10px;">
+                        <button class="btn btn-danger" onclick="clearAll()"><i class="fas fa-trash"></i> Clear All Data</button>
                     </div>
                 </div>
             </div>
@@ -570,7 +669,8 @@ function login() {
         } else {
             toast('Invalid password', 'error');
         }
-    });
+    })
+    .catch(() => toast('Login error', 'error'));
 }
 
 function logout() {
@@ -585,6 +685,7 @@ function loadAll() {
     loadStats();
     loadKeys();
     loadUsers();
+    loadDevices();
 }
 
 function loadStats() {
@@ -595,7 +696,8 @@ function loadStats() {
         document.getElementById('activeKeys').textContent = data.active_keys || 0;
         document.getElementById('usedKeys').textContent = data.used_keys || 0;
         document.getElementById('totalUsers').textContent = data.total_users || 0;
-    });
+    })
+    .catch(() => console.log('Stats load error'));
 }
 
 function loadKeys() {
@@ -604,20 +706,30 @@ function loadKeys() {
     .then(data => {
         const tbody = document.getElementById('keysTable');
         tbody.innerHTML = '';
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#444; padding:20px;">No keys generated yet</td></tr>';
+            return;
+        }
         data.forEach(k => {
             const used = k.used || false;
-            const status = used ? 'USED' : 'ACTIVE';
-            const statusClass = used ? 'status-used' : 'status-active';
             const expired = new Date(k.expires) < new Date();
-            const statusText = expired ? 'EXPIRED' : status;
-            const statusCls = expired ? 'status-expired' : statusClass;
+            let statusText = 'ACTIVE';
+            let statusCls = 'status-active';
+            if (used) { statusText = 'USED'; statusCls = 'status-used'; }
+            if (expired && !used) { statusText = 'EXPIRED'; statusCls = 'status-expired'; }
+            
+            const durationDisplay = k.duration_type === 'days' 
+                ? `<span class="duration-badge duration-days">${k.duration_value}d</span>`
+                : `<span class="duration-badge duration-hours">${k.duration_value}h</span>`;
+            
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="font-family:monospace; font-size:12px;">${k.key}</td>
-                <td>${k.hours}h</td>
+                <td>${durationDisplay}</td>
+                <td><span style="color:#66aaff;">${k.type || 'premium'}</span></td>
                 <td class="${statusCls}">${statusText}</td>
                 <td>${k.used_by || '-'}</td>
-                <td style="font-family:monospace; font-size:11px;">${k.device || '-'}</td>
+                <td style="font-family:monospace; font-size:10px;">${k.device ? k.device.substring(0,16)+'...' : '-'}</td>
                 <td style="font-size:11px;">${new Date(k.expires).toLocaleDateString()}</td>
                 <td>
                     <button class="btn btn-danger" style="padding:4px 12px; font-size:11px;" onclick="deleteKey('${k.key}')">
@@ -627,7 +739,8 @@ function loadKeys() {
             `;
             tbody.appendChild(tr);
         });
-    });
+    })
+    .catch(() => console.log('Keys load error'));
 }
 
 function loadUsers() {
@@ -636,46 +749,97 @@ function loadUsers() {
     .then(data => {
         const tbody = document.getElementById('usersTable');
         tbody.innerHTML = '';
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#444; padding:20px;">No users yet</td></tr>';
+            return;
+        }
         data.forEach(u => {
+            const expired = new Date(u.expires) < new Date();
+            const remaining = expired ? 'EXPIRED' : getRemaining(u.expires);
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><strong>${u.username}</strong></td>
                 <td style="font-family:monospace; font-size:11px;">${u.key}</td>
-                <td style="font-family:monospace; font-size:11px;">${u.device || '-'}</td>
+                <td style="font-family:monospace; font-size:10px;">${u.device ? u.device.substring(0,16)+'...' : '-'}</td>
                 <td style="font-size:11px;">${new Date(u.activated).toLocaleString()}</td>
                 <td style="font-size:11px;">${new Date(u.expires).toLocaleDateString()}</td>
+                <td style="color:${expired ? '#ff4444' : '#00ff88'}; font-weight:600;">${remaining}</td>
             `;
             tbody.appendChild(tr);
         });
-    });
+    })
+    .catch(() => console.log('Users load error'));
+}
+
+function loadDevices() {
+    fetch('/api/devices')
+    .then(res => res.json())
+    .then(data => {
+        const tbody = document.getElementById('devicesTable');
+        tbody.innerHTML = '';
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#444; padding:20px;">No devices registered</td></tr>';
+            return;
+        }
+        data.forEach(d => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-family:monospace; font-size:10px;">${d.device_id}</td>
+                <td><strong>${d.username}</strong></td>
+                <td style="font-family:monospace; font-size:11px;">${d.key}</td>
+                <td style="font-size:11px;">${new Date(d.registered).toLocaleString()}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    })
+    .catch(() => console.log('Devices load error'));
+}
+
+function getRemaining(expires) {
+    const diff = new Date(expires) - new Date();
+    if (diff <= 0) return 'EXPIRED';
+    const days = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    if (days > 0) return `${days}d ${hours}h`;
+    return `${hours}h`;
 }
 
 function generateKeys() {
-    const count = document.getElementById('keyCount').value;
-    const hours = document.getElementById('keyHours').value;
-    const type = document.getElementById('keyType').value;
+    const count = document.getElementById('keyCount').value || 1;
+    const durationValue = document.getElementById('durationValue').value || 24;
+    const durationType = document.getElementById('durationType').value;
+    const keyType = document.getElementById('keyType').value;
 
     fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ count: parseInt(count), hours: parseInt(hours), type: type })
+        body: JSON.stringify({ 
+            count: parseInt(count), 
+            duration_value: parseInt(durationValue),
+            duration_type: durationType,
+            type: keyType
+        })
     })
     .then(res => res.json())
     .then(data => {
         if (data.success) {
             let html = '<div style="margin-top:15px; display:flex; flex-wrap:wrap; gap:10px;">';
             data.keys.forEach(k => {
-                html += `<div class="key-display" style="display:inline-block; padding:10px 15px;">
+                html += `<div class="key-display" style="display:inline-block; padding:10px 15px; font-size:14px;">
                     ${k} <button class="copy-btn" onclick="copyKey('${k}')"><i class="fas fa-copy"></i></button>
                 </div>`;
             });
             html += '</div>';
             document.getElementById('generatedKeys').innerHTML = html;
-            toast(`Generated ${data.count} key(s)`, 'success');
+            toast(`Generated ${data.count} key(s) for ${data.duration_value} ${data.duration_type}`, 'success');
             loadAll();
         } else {
-            toast('Generation failed', 'error');
+            toast('Generation failed: ' + (data.error || 'Unknown error'), 'error');
         }
+    })
+    .catch(err => {
+        toast('Generation error: ' + err.message, 'error');
+        console.error(err);
     });
 }
 
@@ -688,7 +852,21 @@ function deleteKey(key) {
             toast('Key deleted', 'success');
             loadAll();
         }
-    });
+    })
+    .catch(() => toast('Delete error', 'error'));
+}
+
+function clearAll() {
+    if (!confirm('Clear ALL data? This cannot be undone!')) return;
+    fetch('/api/clear', { method: 'DELETE' })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            toast('All data cleared', 'success');
+            loadAll();
+        }
+    })
+    .catch(() => toast('Error clearing data', 'error'));
 }
 
 function copyKey(key) {
@@ -702,6 +880,7 @@ function switchTab(tab) {
     
     document.getElementById('tabKeys').classList.toggle('active', tab === 'keys');
     document.getElementById('tabUsers').classList.toggle('active', tab === 'users');
+    document.getElementById('tabDevices').classList.toggle('active', tab === 'devices');
     document.getElementById('tabApi').classList.toggle('active', tab === 'api');
     
     document.querySelectorAll('.tab').forEach(el => {
@@ -719,10 +898,8 @@ function toast(msg, type) {
     setTimeout(() => div.remove(), 3000);
 }
 
-// Check login on load
-document.addEventListener('DOMContentLoaded', function() {
-    // Show login by default
-});
+// Auto-refresh every 30 seconds
+setInterval(loadAll, 30000);
 </script>
 </body>
 </html>
