@@ -1,4 +1,4 @@
-# app.py - Updated with Custom Key Generation
+# app.py - Complete Premium Key System with Device Management
 import os
 import json
 import hashlib
@@ -65,7 +65,100 @@ def log_activity(action, details):
     save_data(ACTIVITY_FILE, activity)
 
 # =============================================
-# API ENDPOINTS - For Java Application
+# FIXED: CHECK KEY ENDPOINT (GET)
+# =============================================
+
+@app.route('/api/check', methods=['GET'])
+def check_key():
+    """Simple GET endpoint to check key status"""
+    try:
+        key = request.args.get('key')
+        device = request.args.get('device')
+        
+        if not key:
+            return jsonify({
+                "success": False,
+                "error": "Key parameter required",
+                "usage": "/api/check?key=YOUR_KEY&device=YOUR_DEVICE"
+            }), 400
+        
+        keys = load_data(KEYS_FILE)
+        
+        for k in keys:
+            if k['key'] == key:
+                # Check if key is used
+                if not k.get('used', False):
+                    return jsonify({
+                        "success": False,
+                        "valid": False,
+                        "error": "Key not activated",
+                        "status": "INACTIVE",
+                        "key": key
+                    })
+                
+                # Check device match (if device provided)
+                if device and k.get('device') != device:
+                    return jsonify({
+                        "success": False,
+                        "valid": False,
+                        "error": "Device mismatch",
+                        "status": "DEVICE_MISMATCH",
+                        "key": key,
+                        "registered_device": k['device'][:16] + "..." if k['device'] else None
+                    })
+                
+                # Check expiry
+                expires = datetime.fromisoformat(k['expires'])
+                if expires < datetime.now():
+                    return jsonify({
+                        "success": False,
+                        "valid": False,
+                        "error": "Key expired",
+                        "status": "EXPIRED",
+                        "key": key,
+                        "expires": k['expires']
+                    })
+                
+                # Calculate remaining
+                remaining_seconds = (expires - datetime.now()).total_seconds()
+                if k['duration_type'] == 'days':
+                    remaining = int(remaining_seconds / 86400)
+                    remaining_text = f"{remaining} days"
+                else:
+                    remaining = int(remaining_seconds / 3600)
+                    remaining_text = f"{remaining} hours"
+                
+                return jsonify({
+                    "success": True,
+                    "valid": True,
+                    "status": "VALID",
+                    "key": key,
+                    "username": k.get('used_by', 'Unknown'),
+                    "device": k.get('device', 'Not registered'),
+                    "expires": k['expires'],
+                    "remaining": remaining_text,
+                    "remaining_hours": int(remaining_seconds / 3600),
+                    "duration_type": k['duration_type'],
+                    "duration_value": k['duration_value'],
+                    "is_custom": k.get('is_custom', False)
+                })
+        
+        return jsonify({
+            "success": False,
+            "valid": False,
+            "error": "Invalid key",
+            "status": "INVALID",
+            "key": key
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "valid": False,
+            "error": str(e)
+        }), 400
+
+# =============================================
+# LOGIN ENDPOINT (POST)
 # =============================================
 
 @app.route('/api/login', methods=['POST'])
@@ -100,7 +193,7 @@ def login_key():
                         "success": False,
                         "error": "Device mismatch",
                         "status": "DEVICE_MISMATCH",
-                        "registered_device": k['device'][:16] + "..."
+                        "registered_device": k['device'][:16] + "..." if k['device'] else None
                     }), 400
                 
                 # Check expiry
@@ -151,6 +244,10 @@ def login_key():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
+# =============================================
+# GENERATE ENDPOINTS
+# =============================================
+
 @app.route('/api/generate', methods=['POST'])
 @admin_required
 def generate_keys():
@@ -200,17 +297,12 @@ def generate_keys():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
-# =============================================
-# NEW: CUSTOM KEY GENERATION
-# =============================================
-
 @app.route('/api/generate/custom', methods=['POST'])
 @admin_required
 def generate_custom_keys():
-    """Generate custom keys - you provide the key values"""
     try:
         data = request.json
-        custom_keys = data.get('keys', [])  # List of custom keys
+        custom_keys = data.get('keys', [])
         duration_type = data.get('duration_type', 'hours')
         duration_value = int(data.get('duration_value', 24))
         
@@ -222,10 +314,8 @@ def generate_custom_keys():
         duplicates = []
         
         for custom_key in custom_keys:
-            # Remove whitespace and convert to uppercase
             custom_key = custom_key.strip().upper()
             
-            # Check if key already exists
             existing = any(k['key'] == custom_key for k in keys)
             if existing:
                 duplicates.append(custom_key)
@@ -254,80 +344,6 @@ def generate_custom_keys():
         
         save_data(KEYS_FILE, keys)
         log_activity("GENERATE_CUSTOM", {
-            "count": len(generated),
-            "duplicates": len(duplicates),
-            "duration": f"{duration_value} {duration_type}"
-        })
-        
-        return jsonify({
-            "success": True,
-            "keys": generated,
-            "duplicates": duplicates,
-            "count": len(generated),
-            "duration_type": duration_type,
-            "duration_value": duration_value,
-            "message": f"Generated {len(generated)} custom key(s)"
-        })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
-
-# =============================================
-# NEW: BULK CUSTOM KEY GENERATION
-# =============================================
-
-@app.route('/api/generate/custom/bulk', methods=['POST'])
-@admin_required
-def generate_custom_keys_bulk():
-    """Generate multiple custom keys from text area"""
-    try:
-        data = request.json
-        key_text = data.get('keys_text', '')  # Newline separated keys
-        duration_type = data.get('duration_type', 'hours')
-        duration_value = int(data.get('duration_value', 24))
-        
-        if not key_text:
-            return jsonify({"success": False, "error": "No keys provided"}), 400
-        
-        # Split by newline and clean
-        custom_keys = [k.strip().upper() for k in key_text.split('\n') if k.strip()]
-        
-        if not custom_keys:
-            return jsonify({"success": False, "error": "No valid keys found"}), 400
-        
-        keys = load_data(KEYS_FILE)
-        generated = []
-        duplicates = []
-        
-        for custom_key in custom_keys:
-            # Check if key already exists
-            existing = any(k['key'] == custom_key for k in keys)
-            if existing:
-                duplicates.append(custom_key)
-                continue
-            
-            if duration_type == 'days':
-                expires = (datetime.now() + timedelta(days=duration_value)).isoformat()
-            else:
-                expires = (datetime.now() + timedelta(hours=duration_value)).isoformat()
-            
-            key_data = {
-                "key": custom_key,
-                "duration_type": duration_type,
-                "duration_value": duration_value,
-                "created": datetime.now().isoformat(),
-                "expires": expires,
-                "used": False,
-                "used_by": None,
-                "device": None,
-                "activated": None,
-                "status": "ACTIVE",
-                "is_custom": True
-            }
-            keys.append(key_data)
-            generated.append(custom_key)
-        
-        save_data(KEYS_FILE, keys)
-        log_activity("GENERATE_CUSTOM_BULK", {
             "count": len(generated),
             "duplicates": len(duplicates),
             "duration": f"{duration_value} {duration_type}"
@@ -480,14 +496,6 @@ def verify_key():
         }), 400
     except Exception as e:
         return jsonify({"valid": False, "error": str(e)}), 400
-
-@app.route('/api/check', methods=['GET'])
-def check_key():
-    key = request.args.get('key')
-    device = request.args.get('device')
-    if not key:
-        return jsonify({"error": "Key required"}), 400
-    return verify_key()
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
@@ -726,7 +734,6 @@ HTML = '''
             <div class="stat"><div class="num" id="totalUsers">0</div><div class="label">Users</div></div>
         </div>
 
-        <!-- AUTO GENERATE SECTION -->
         <div class="panel">
             <h3><i class="fas fa-robot"></i> Auto Generate Keys</h3>
             <div class="input-group">
@@ -741,7 +748,6 @@ HTML = '''
             <div id="generatedKeys"></div>
         </div>
 
-        <!-- CUSTOM KEY SECTION -->
         <div class="panel" style="border-color: #ffaa00;">
             <h3><i class="fas fa-pen"></i> Custom Key Generation <span class="custom-badge">✏️ YOUR KEYS</span></h3>
             
@@ -764,7 +770,6 @@ HTML = '''
             <div id="customGeneratedKeys"></div>
         </div>
 
-        <!-- TAB SECTION -->
         <div class="panel">
             <div class="tabs">
                 <div class="tab active" onclick="switchTab('keys')"><i class="fas fa-keys"></i> Keys</div>
@@ -801,24 +806,19 @@ HTML = '''
                 <div style="background:#0a0a0a; padding:20px; border-radius:8px; border:1px solid #222;">
                     <h4 style="color:#00ff88;"><i class="fas fa-plug"></i> API Endpoints for Java App</h4>
                     <div class="api-example">
+                        <p><span class="method">GET</span> /api/check?key=KEY - Check key status (no device required)</p>
+                        <p><span class="method">GET</span> /api/check?key=KEY&device=DEVICE - Check key with device</p>
                         <p><span class="method">POST</span> /api/login - Login with key and device</p>
                         <p><span class="method">POST</span> /api/generate - Auto generate keys (admin)</p>
-                        <p><span class="method">POST</span> /api/generate/custom - <span style="color:#ffaa00;">NEW: Add custom keys</span></p>
-                        <p><span class="method">POST</span> /api/generate/custom/bulk - Bulk custom keys</p>
+                        <p><span class="method">POST</span> /api/generate/custom - Add custom keys</p>
                         <p><span class="method">POST</span> /api/activate - Activate key with device</p>
                         <p><span class="method">POST</span> /api/verify - Verify key and device</p>
-                        <p><span class="method">GET</span> /api/check?key=KEY&device=DEVICE - Quick check</p>
                         <p><span class="method">GET</span> /api/stats - System statistics</p>
                     </div>
                     <div style="margin-top:15px; background:#0a0a0a; padding:15px; border-radius:6px; border:1px solid #222;">
-                        <p style="color:#888; font-size:13px;"><strong>Custom Key Example:</strong></p>
-                        <pre style="color:#ffaa00; font-size:12px; background:#000; padding:10px; border-radius:4px; overflow-x:auto;">
-POST /api/generate/custom
-{
-  "keys": ["MYKEY123", "VIP456", "PREMIUM789"],
-  "duration_type": "days",
-  "duration_value": 30
-}</pre>
+                        <p style="color:#888; font-size:13px;"><strong>Check Key Example (Browser):</strong></p>
+                        <pre style="color:#00ff88; font-size:12px; background:#000; padding:10px; border-radius:4px; overflow-x:auto;">
+https://your-app.railway.app/api/check?key=I4UWOC6TJZDI9822</pre>
                     </div>
                     <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
                         <button class="btn btn-danger" onclick="clearAll()"><i class="fas fa-trash"></i> Clear All Data</button>
@@ -1011,7 +1011,6 @@ function getRemaining(expires) {
     return `${hours}h`;
 }
 
-// AUTO GENERATE
 function generateKeys() {
     const count = document.getElementById('keyCount').value || 1;
     const durationValue = document.getElementById('durationValue').value || 24;
@@ -1047,7 +1046,6 @@ function generateKeys() {
     });
 }
 
-// CUSTOM GENERATE
 function generateCustomKeys() {
     const keysText = document.getElementById('customKeysText').value;
     const durationValue = document.getElementById('customDurationValue').value || 24;
@@ -1058,7 +1056,6 @@ function generateCustomKeys() {
         return;
     }
 
-    // Split by newline and clean
     const keys = keysText.split('\\n').map(k => k.trim().toUpperCase()).filter(k => k);
 
     if (keys.length === 0) {
