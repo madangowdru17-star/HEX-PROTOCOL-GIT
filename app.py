@@ -1,4 +1,4 @@
-# app.py - Complete Fixed Version with Working GET/POST
+# app.py - Complete with Device Limit per Key
 import os
 import json
 import hashlib
@@ -65,12 +65,11 @@ def log_activity(action, details):
     save_data(ACTIVITY_FILE, activity)
 
 # =============================================
-# FIXED: CHECK KEY ENDPOINT (GET ONLY - NO JSON)
+# CHECK KEY ENDPOINT (GET)
 # =============================================
 
 @app.route('/api/check', methods=['GET'])
 def check_key():
-    """Simple GET endpoint to check key status - NO JSON REQUIRED"""
     try:
         key = request.args.get('key')
         device = request.args.get('device')
@@ -96,15 +95,25 @@ def check_key():
                         "key": key
                     })
                 
-                # Check device match (if device provided)
-                if device and k.get('device') != device:
-                    return jsonify({
-                        "success": False,
-                        "valid": False,
-                        "error": "Device mismatch",
-                        "status": "DEVICE_MISMATCH",
-                        "key": key
-                    })
+                # Check device limit
+                if device:
+                    devices = load_data(DEVICES_FILE)
+                    device_count = sum(1 for d in devices if d['key'] == key)
+                    max_devices = k.get('device_limit', 1)
+                    
+                    # Check if this device is already registered
+                    device_registered = any(d['device_id'] == device and d['key'] == key for d in devices)
+                    
+                    if not device_registered and device_count >= max_devices:
+                        return jsonify({
+                            "success": False,
+                            "valid": False,
+                            "error": f"Device limit reached (max {max_devices} devices)",
+                            "status": "DEVICE_LIMIT_REACHED",
+                            "key": key,
+                            "device_limit": max_devices,
+                            "current_devices": device_count
+                        })
                 
                 # Check expiry
                 expires = datetime.fromisoformat(k['expires'])
@@ -127,6 +136,11 @@ def check_key():
                     remaining = int(remaining_seconds / 3600)
                     remaining_text = f"{remaining} hours"
                 
+                # Get device count
+                devices = load_data(DEVICES_FILE)
+                device_count = sum(1 for d in devices if d['key'] == key)
+                max_devices = k.get('device_limit', 1)
+                
                 return jsonify({
                     "success": True,
                     "valid": True,
@@ -139,7 +153,10 @@ def check_key():
                     "remaining_hours": int(remaining_seconds / 3600),
                     "duration_type": k['duration_type'],
                     "duration_value": k['duration_value'],
-                    "is_custom": k.get('is_custom', False)
+                    "is_custom": k.get('is_custom', False),
+                    "device_limit": max_devices,
+                    "current_devices": device_count,
+                    "devices_remaining": max_devices - device_count
                 })
         
         return jsonify({
@@ -171,19 +188,40 @@ def login_key():
             return jsonify({"success": False, "error": "Key required"}), 400
         
         keys = load_data(KEYS_FILE)
+        devices = load_data(DEVICES_FILE)
         
         for k in keys:
             if k['key'] == key:
                 if not k['used']:
                     return jsonify({"success": False, "error": "Key not activated", "status": "INACTIVE"}), 400
                 
-                if k['device'] != device:
+                # Check device limit
+                device_count = sum(1 for d in devices if d['key'] == key)
+                max_devices = k.get('device_limit', 1)
+                device_registered = any(d['device_id'] == device and d['key'] == key for d in devices)
+                
+                if not device_registered and device_count >= max_devices:
                     return jsonify({
                         "success": False,
-                        "error": "Device mismatch",
-                        "status": "DEVICE_MISMATCH"
+                        "error": f"Device limit reached (max {max_devices} devices)",
+                        "status": "DEVICE_LIMIT_REACHED",
+                        "device_limit": max_devices,
+                        "current_devices": device_count
                     }), 400
                 
+                # If device not registered, add it
+                if not device_registered:
+                    device_data = {
+                        "device_id": device,
+                        "username": k['used_by'],
+                        "key": key,
+                        "registered": datetime.now().isoformat()
+                    }
+                    devices.append(device_data)
+                    save_data(DEVICES_FILE, devices)
+                    log_activity("DEVICE_ADDED", {"key": key, "device": device})
+                
+                # Check expiry
                 expires = datetime.fromisoformat(k['expires'])
                 if expires < datetime.now():
                     return jsonify({
@@ -199,6 +237,10 @@ def login_key():
                 else:
                     remaining_text = f"{int(remaining_seconds / 3600)} hours"
                 
+                # Get updated device count
+                device_count = sum(1 for d in devices if d['key'] == key)
+                max_devices = k.get('device_limit', 1)
+                
                 log_activity("LOGIN", {"key": key, "username": k['used_by'], "device": device})
                 
                 return jsonify({
@@ -212,7 +254,10 @@ def login_key():
                     "remaining": remaining_text,
                     "remaining_hours": int(remaining_seconds / 3600),
                     "duration_type": k['duration_type'],
-                    "duration_value": k['duration_value']
+                    "duration_value": k['duration_value'],
+                    "device_limit": max_devices,
+                    "current_devices": device_count,
+                    "devices_remaining": max_devices - device_count
                 })
         
         return jsonify({"success": False, "error": "Invalid key", "status": "INVALID"}), 400
@@ -220,7 +265,7 @@ def login_key():
         return jsonify({"success": False, "error": str(e)}), 400
 
 # =============================================
-# GENERATE ENDPOINTS
+# GENERATE ENDPOINTS WITH DEVICE LIMIT
 # =============================================
 
 @app.route('/api/generate', methods=['POST'])
@@ -231,6 +276,7 @@ def generate_keys():
         count = int(data.get('count', 1))
         duration_type = data.get('duration_type', 'hours')
         duration_value = int(data.get('duration_value', 24))
+        device_limit = int(data.get('device_limit', 1))  # NEW: device limit per key
         
         keys = load_data(KEYS_FILE)
         generated = []
@@ -253,13 +299,19 @@ def generate_keys():
                 "used_by": None,
                 "device": None,
                 "activated": None,
-                "status": "ACTIVE"
+                "status": "ACTIVE",
+                "device_limit": device_limit,  # NEW
+                "devices": []  # NEW: list of registered devices
             }
             keys.append(key_data)
             generated.append(key)
         
         save_data(KEYS_FILE, keys)
-        log_activity("GENERATE", {"count": count, "duration": f"{duration_value} {duration_type}"})
+        log_activity("GENERATE", {
+            "count": count, 
+            "duration": f"{duration_value} {duration_type}",
+            "device_limit": device_limit
+        })
         
         return jsonify({
             "success": True,
@@ -267,7 +319,8 @@ def generate_keys():
             "count": count,
             "duration_type": duration_type,
             "duration_value": duration_value,
-            "message": f"Generated {count} key(s)"
+            "device_limit": device_limit,
+            "message": f"Generated {count} key(s) with {device_limit} device(s) limit"
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
@@ -280,6 +333,7 @@ def generate_custom_keys():
         custom_keys = data.get('keys', [])
         duration_type = data.get('duration_type', 'hours')
         duration_value = int(data.get('duration_value', 24))
+        device_limit = int(data.get('device_limit', 1))  # NEW
         
         if not custom_keys:
             return jsonify({"success": False, "error": "No custom keys provided"}), 400
@@ -312,7 +366,9 @@ def generate_custom_keys():
                 "device": None,
                 "activated": None,
                 "status": "ACTIVE",
-                "is_custom": True
+                "is_custom": True,
+                "device_limit": device_limit,  # NEW
+                "devices": []  # NEW
             }
             keys.append(key_data)
             generated.append(custom_key)
@@ -321,7 +377,8 @@ def generate_custom_keys():
         log_activity("GENERATE_CUSTOM", {
             "count": len(generated),
             "duplicates": len(duplicates),
-            "duration": f"{duration_value} {duration_type}"
+            "duration": f"{duration_value} {duration_type}",
+            "device_limit": device_limit
         })
         
         return jsonify({
@@ -331,10 +388,15 @@ def generate_custom_keys():
             "count": len(generated),
             "duration_type": duration_type,
             "duration_value": duration_value,
-            "message": f"Generated {len(generated)} custom key(s)"
+            "device_limit": device_limit,
+            "message": f"Generated {len(generated)} custom key(s) with {device_limit} device(s) limit"
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
+
+# =============================================
+# ACTIVATE ENDPOINT WITH DEVICE LIMIT
+# =============================================
 
 @app.route('/api/activate', methods=['POST'])
 def activate_key():
@@ -365,6 +427,7 @@ def activate_key():
                 k['device'] = device
                 k['activated'] = datetime.now().isoformat()
                 k['status'] = "ACTIVATED"
+                k['devices'] = [device]  # NEW: store first device
                 
                 user_data = {
                     "username": username,
@@ -395,12 +458,18 @@ def activate_key():
                     "username": username,
                     "device": device,
                     "expires": k['expires'],
-                    "status": "ACTIVATED"
+                    "status": "ACTIVATED",
+                    "device_limit": k.get('device_limit', 1),
+                    "current_devices": 1
                 })
         
         return jsonify({"error": "Invalid key"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+# =============================================
+# VERIFY ENDPOINT WITH DEVICE LIMIT
+# =============================================
 
 @app.route('/api/verify', methods=['POST'])
 def verify_key():
@@ -413,14 +482,26 @@ def verify_key():
             return jsonify({"error": "Key required"}), 400
         
         keys = load_data(KEYS_FILE)
+        devices = load_data(DEVICES_FILE)
         
         for k in keys:
             if k['key'] == key:
                 if not k['used']:
                     return jsonify({"valid": False, "error": "Key not activated", "status": "INACTIVE"}), 400
                 
-                if k['device'] != device:
-                    return jsonify({"valid": False, "error": "Device mismatch", "status": "DEVICE_MISMATCH"}), 400
+                # Check device limit
+                device_count = sum(1 for d in devices if d['key'] == key)
+                max_devices = k.get('device_limit', 1)
+                device_registered = any(d['device_id'] == device and d['key'] == key for d in devices)
+                
+                if not device_registered and device_count >= max_devices:
+                    return jsonify({
+                        "valid": False,
+                        "error": f"Device limit reached (max {max_devices} devices)",
+                        "status": "DEVICE_LIMIT_REACHED",
+                        "device_limit": max_devices,
+                        "current_devices": device_count
+                    }), 400
                 
                 expires = datetime.fromisoformat(k['expires'])
                 if expires < datetime.now():
@@ -442,15 +523,166 @@ def verify_key():
                     "status": "VALID",
                     "key": key,
                     "username": k['used_by'],
-                    "device": k['device'],
+                    "device": device,
                     "expires": k['expires'],
                     "remaining": remaining_text,
-                    "remaining_hours": int(remaining_seconds / 3600)
+                    "remaining_hours": int(remaining_seconds / 3600),
+                    "device_limit": k.get('device_limit', 1),
+                    "current_devices": device_count,
+                    "devices_remaining": max_devices - device_count
                 })
         
         return jsonify({"valid": False, "error": "Invalid key", "status": "INVALID"}), 400
     except Exception as e:
         return jsonify({"valid": False, "error": str(e)}), 400
+
+# =============================================
+# ADD DEVICE TO EXISTING KEY (NEW)
+# =============================================
+
+@app.route('/api/add/device', methods=['POST'])
+def add_device():
+    try:
+        data = request.json
+        key = data.get('key')
+        username = data.get('username')
+        new_device = data.get('device') or get_device_id(request)
+        
+        if not key:
+            return jsonify({"error": "Key required"}), 400
+        
+        keys = load_data(KEYS_FILE)
+        devices = load_data(DEVICES_FILE)
+        
+        for k in keys:
+            if k['key'] == key:
+                if not k['used']:
+                    return jsonify({"error": "Key not activated", "status": "INACTIVE"}), 400
+                
+                # Check if device already registered
+                device_registered = any(d['device_id'] == new_device and d['key'] == key for d in devices)
+                if device_registered:
+                    return jsonify({
+                        "error": "Device already registered",
+                        "status": "DEVICE_EXISTS"
+                    }), 400
+                
+                # Check device limit
+                device_count = sum(1 for d in devices if d['key'] == key)
+                max_devices = k.get('device_limit', 1)
+                
+                if device_count >= max_devices:
+                    return jsonify({
+                        "error": f"Device limit reached (max {max_devices} devices)",
+                        "status": "DEVICE_LIMIT_REACHED",
+                        "device_limit": max_devices,
+                        "current_devices": device_count
+                    }), 400
+                
+                # Add new device
+                device_data = {
+                    "device_id": new_device,
+                    "username": username or k['used_by'],
+                    "key": key,
+                    "registered": datetime.now().isoformat()
+                }
+                devices.append(device_data)
+                save_data(DEVICES_FILE, devices)
+                
+                # Update key devices list
+                if 'devices' not in k:
+                    k['devices'] = []
+                k['devices'].append(new_device)
+                save_data(KEYS_FILE, keys)
+                
+                log_activity("DEVICE_ADDED", {"key": key, "device": new_device})
+                
+                return jsonify({
+                    "success": True,
+                    "message": "Device added successfully",
+                    "key": key,
+                    "device": new_device,
+                    "device_limit": k.get('device_limit', 1),
+                    "current_devices": device_count + 1,
+                    "devices_remaining": max_devices - (device_count + 1)
+                })
+        
+        return jsonify({"error": "Invalid key"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# =============================================
+# GET KEY DEVICES (NEW)
+# =============================================
+
+@app.route('/api/key/devices', methods=['GET'])
+def get_key_devices():
+    try:
+        key = request.args.get('key')
+        
+        if not key:
+            return jsonify({"error": "Key required"}), 400
+        
+        keys = load_data(KEYS_FILE)
+        devices = load_data(DEVICES_FILE)
+        
+        for k in keys:
+            if k['key'] == key:
+                key_devices = [d for d in devices if d['key'] == key]
+                return jsonify({
+                    "key": key,
+                    "device_limit": k.get('device_limit', 1),
+                    "current_devices": len(key_devices),
+                    "devices": key_devices,
+                    "devices_remaining": k.get('device_limit', 1) - len(key_devices)
+                })
+        
+        return jsonify({"error": "Invalid key"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# =============================================
+# REMOVE DEVICE FROM KEY (NEW)
+# =============================================
+
+@app.route('/api/remove/device', methods=['POST'])
+@admin_required
+def remove_device():
+    try:
+        data = request.json
+        key = data.get('key')
+        device = data.get('device')
+        
+        if not key or not device:
+            return jsonify({"error": "Key and device required"}), 400
+        
+        devices = load_data(DEVICES_FILE)
+        devices = [d for d in devices if not (d['key'] == key and d['device_id'] == device)]
+        save_data(DEVICES_FILE, devices)
+        
+        # Update key devices list
+        keys = load_data(KEYS_FILE)
+        for k in keys:
+            if k['key'] == key and 'devices' in k:
+                if device in k['devices']:
+                    k['devices'].remove(device)
+                save_data(KEYS_FILE, keys)
+                break
+        
+        log_activity("DEVICE_REMOVED", {"key": key, "device": device})
+        
+        return jsonify({
+            "success": True,
+            "message": "Device removed successfully",
+            "key": key,
+            "device": device
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# =============================================
+# STATS ENDPOINT
+# =============================================
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
@@ -465,6 +697,10 @@ def get_stats():
         expired = sum(1 for k in keys if datetime.fromisoformat(k['expires']) < datetime.now())
         custom = sum(1 for k in keys if k.get('is_custom', False))
         
+        # Total device limit across all keys
+        total_device_limit = sum(k.get('device_limit', 1) for k in keys)
+        total_devices_registered = len(devices)
+        
         return jsonify({
             "total_keys": total,
             "used_keys": used,
@@ -472,16 +708,24 @@ def get_stats():
             "expired_keys": expired,
             "custom_keys": custom,
             "total_users": len(users),
-            "total_devices": len(devices)
+            "total_devices": len(devices),
+            "total_device_limit": total_device_limit,
+            "devices_registered": total_devices_registered
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+# =============================================
+# LIST KEYS WITH DEVICE INFO
+# =============================================
 
 @app.route('/api/keys', methods=['GET'])
 @admin_required
 def list_keys():
     try:
         keys = load_data(KEYS_FILE)
+        devices = load_data(DEVICES_FILE)
+        
         for k in keys:
             expires = datetime.fromisoformat(k['expires'])
             if k.get('used', False):
@@ -497,9 +741,20 @@ def list_keys():
             
             if k.get('is_custom', False):
                 k['status_display'] += " ✏️"
+            
+            # Add device info
+            key_devices = [d for d in devices if d['key'] == k['key']]
+            k['current_devices'] = len(key_devices)
+            k['device_limit'] = k.get('device_limit', 1)
+            k['devices_remaining'] = k['device_limit'] - len(key_devices)
+        
         return jsonify(keys)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+# =============================================
+# OTHER ENDPOINTS
+# =============================================
 
 @app.route('/api/users', methods=['GET'])
 @admin_required
@@ -532,6 +787,12 @@ def delete_key(key):
         keys = load_data(KEYS_FILE)
         keys = [k for k in keys if k['key'] != key]
         save_data(KEYS_FILE, keys)
+        
+        # Remove associated devices
+        devices = load_data(DEVICES_FILE)
+        devices = [d for d in devices if d['key'] != key]
+        save_data(DEVICES_FILE, devices)
+        
         log_activity("DELETE", {"key": key})
         return jsonify({"success": True, "message": "Key deleted"})
     except Exception as e:
@@ -592,7 +853,7 @@ HTML = '''
         .header h1 i { margin-right: 10px; }
         .badge { background: #0a0a0a; color: #00ff88; padding: 5px 15px; border-radius: 20px; font-size: 12px; }
         .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 30px; }
         .stat { background: #111; border: 1px solid #222; border-radius: 12px; padding: 20px; text-align: center; transition: 0.3s; }
         .stat:hover { border-color: #00ff88; transform: translateY(-3px); }
         .stat .num { font-size: 32px; font-weight: 900; color: #00ff88; }
@@ -617,9 +878,11 @@ HTML = '''
         .btn-outline { background: transparent; border: 2px solid #222; color: #fff; }
         .btn-outline:hover { border-color: #00ff88; color: #00ff88; }
         .btn-sm { padding: 5px 12px; font-size: 11px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .btn-info { background: #3399ff; color: #fff; }
+        .btn-info:hover { transform: scale(1.05); }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
         th { text-align: left; padding: 10px; color: #666; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid #222; }
-        td { padding: 10px; border-bottom: 1px solid #1a1a1a; font-size: 13px; }
+        td { padding: 10px; border-bottom: 1px solid #1a1a1a; }
         tr:hover { background: #0d0d0d; }
         .status-active { color: #00ff88; }
         .status-used { color: #ffaa00; }
@@ -651,16 +914,14 @@ HTML = '''
         .duration-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
         .duration-hours { background: #1a3a2a; color: #00ff88; }
         .duration-days { background: #1a2a3a; color: #66aaff; }
-        .scrollable { max-height: 400px; overflow-y: auto; }
+        .device-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; background: #1a2a3a; color: #66aaff; }
+        .device-limit-full { color: #ff4444; }
+        .device-limit-available { color: #00ff88; }
+        .scrollable { max-height: 500px; overflow-y: auto; }
         .scrollable::-webkit-scrollbar { width: 6px; }
         .scrollable::-webkit-scrollbar-track { background: #0a0a0a; }
         .scrollable::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
         .scrollable::-webkit-scrollbar-thumb:hover { background: #00ff88; }
-        .device-hash { font-family: monospace; font-size: 10px; color: #666; }
-        .api-example { background: #0a0a0a; padding: 15px; border-radius: 8px; border: 1px solid #222; font-family: monospace; font-size: 13px; color: #aaa; margin: 10px 0; }
-        .api-example .method { color: #00ff88; }
-        .api-example .key { color: #ffaa00; }
-        .section-divider { border-top: 1px solid #222; margin: 20px 0; }
         @media (max-width: 768px) { .header { flex-direction: column; gap: 10px; padding: 15px; } .stats { grid-template-columns: repeat(2, 1fr); } .input-group { flex-direction: column; } .input-group input, .input-group select, .input-group textarea { width: 100%; } }
     </style>
 </head>
@@ -677,7 +938,7 @@ HTML = '''
 <div id="main" style="display:none;">
     <div class="header">
         <h1><i class="fas fa-crown"></i> HEX KEY SYSTEM PREMIUM</h1>
-        <span class="badge"><i class="fas fa-bolt"></i> v2.1</span>
+        <span class="badge"><i class="fas fa-bolt"></i> v3.0</span>
     </div>
     <div class="container">
         <div class="stats" id="stats">
@@ -687,17 +948,19 @@ HTML = '''
             <div class="stat"><div class="num" id="expiredKeys">0</div><div class="label">Expired Keys</div></div>
             <div class="stat"><div class="num" id="customKeys">0</div><div class="label">Custom Keys</div></div>
             <div class="stat"><div class="num" id="totalUsers">0</div><div class="label">Users</div></div>
+            <div class="stat"><div class="num" id="totalDevices">0</div><div class="label">Devices</div></div>
         </div>
 
         <div class="panel">
             <h3><i class="fas fa-robot"></i> Auto Generate Keys</h3>
             <div class="input-group">
-                <input type="number" id="keyCount" value="1" min="1" max="50" style="max-width:80px;">
-                <input type="number" id="durationValue" value="24" min="1" max="9999" style="max-width:100px;">
-                <select id="durationType" style="max-width:120px;">
+                <input type="number" id="keyCount" value="1" min="1" max="50" style="max-width:70px;">
+                <input type="number" id="durationValue" value="24" min="1" max="9999" style="max-width:80px;">
+                <select id="durationType" style="max-width:100px;">
                     <option value="hours">Hours</option>
                     <option value="days">Days</option>
                 </select>
+                <input type="number" id="deviceLimit" value="1" min="1" max="10" style="max-width:70px;" placeholder="Devices">
                 <button class="btn btn-primary" onclick="generateKeys()"><i class="fas fa-wand-magic-sparkles"></i> Generate</button>
             </div>
             <div id="generatedKeys"></div>
@@ -705,12 +968,8 @@ HTML = '''
 
         <div class="panel" style="border-color: #ffaa00;">
             <h3><i class="fas fa-pen"></i> Custom Key Generation <span class="custom-badge">✏️ YOUR KEYS</span></h3>
-            
-            <div style="margin-bottom: 10px;">
-                <label style="color:#888; font-size:12px;">Enter your custom keys (one per line)</label>
-            </div>
             <div class="input-group">
-                <textarea id="customKeysText" rows="4" placeholder="MYKEY123&#10;VIPKEY456&#10;PREMIUM789" style="flex:2;"></textarea>
+                <textarea id="customKeysText" rows="3" placeholder="MYKEY123&#10;VIPKEY456&#10;PREMIUM789" style="flex:2;"></textarea>
                 <div style="display:flex; flex-direction:column; gap:8px; flex:1; min-width:150px;">
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
                         <input type="number" id="customDurationValue" value="24" min="1" max="9999" style="flex:1; min-width:60px;">
@@ -718,6 +977,7 @@ HTML = '''
                             <option value="hours">Hours</option>
                             <option value="days">Days</option>
                         </select>
+                        <input type="number" id="customDeviceLimit" value="1" min="1" max="10" style="flex:1; min-width:60px;" placeholder="Devices">
                     </div>
                     <button class="btn btn-custom" onclick="generateCustomKeys()"><i class="fas fa-plus"></i> Add Custom Keys</button>
                 </div>
@@ -736,7 +996,7 @@ HTML = '''
             <div id="tabKeys" class="tab-content active">
                 <div class="scrollable">
                     <table>
-                        <thead><tr><th>Key</th><th>Duration</th><th>Status</th><th>User</th><th>Device</th><th>Expires</th><th>Action</th></tr></thead>
+                        <thead><tr><th>Key</th><th>Duration</th><th>Devices</th><th>Status</th><th>User</th><th>Expires</th><th>Action</th></tr></thead>
                         <tbody id="keysTable"></tbody>
                     </table>
                 </div>
@@ -759,23 +1019,15 @@ HTML = '''
             </div>
             <div id="tabApi" class="tab-content">
                 <div style="background:#0a0a0a; padding:20px; border-radius:8px; border:1px solid #222;">
-                    <h4 style="color:#00ff88;"><i class="fas fa-plug"></i> API Endpoints for Java App</h4>
+                    <h4 style="color:#00ff88;"><i class="fas fa-plug"></i> API Endpoints</h4>
                     <div class="api-example">
-                        <p><span class="method">GET</span> /api/check?key=KEY - Check key status (works in browser)</p>
+                        <p><span class="method">GET</span> /api/check?key=KEY - Check key status</p>
                         <p><span class="method">POST</span> /api/login - Login with key and device</p>
-                        <p><span class="method">POST</span> /api/generate - Auto generate keys (admin)</p>
-                        <p><span class="method">POST</span> /api/generate/custom - Add custom keys</p>
-                        <p><span class="method">POST</span> /api/activate - Activate key with device</p>
-                        <p><span class="method">POST</span> /api/verify - Verify key and device</p>
-                        <p><span class="method">GET</span> /api/stats - System statistics</p>
-                    </div>
-                    <div style="margin-top:15px; background:#0a0a0a; padding:15px; border-radius:6px; border:1px solid #222;">
-                        <p style="color:#888; font-size:13px;"><strong>Check Key Example (Browser):</strong></p>
-                        <pre style="color:#00ff88; font-size:12px; background:#000; padding:10px; border-radius:4px; overflow-x:auto;">
-https://your-app.railway.app/api/check?key=YOUR_KEY</pre>
-                    </div>
-                    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-                        <button class="btn btn-danger" onclick="clearAll()"><i class="fas fa-trash"></i> Clear All Data</button>
+                        <p><span class="method">POST</span> /api/activate - Activate key</p>
+                        <p><span class="method">POST</span> /api/add/device - Add device to key</p>
+                        <p><span class="method">GET</span> /api/key/devices?key=KEY - Get key devices</p>
+                        <p><span class="method">POST</span> /api/generate - Generate keys (admin)</p>
+                        <p><span class="method">POST</span> /api/generate/custom - Add custom keys (admin)</p>
                     </div>
                 </div>
             </div>
@@ -789,7 +1041,7 @@ https://your-app.railway.app/api/check?key=YOUR_KEY</pre>
             </div>
         </div>
         <div class="footer">
-            <i class="fas fa-crown" style="color:#00ff88;"></i> HEX KEY SYSTEM PREMIUM &bull; 
+            <i class="fas fa-crown" style="color:#00ff88;"></i> HEX KEY SYSTEM PREMIUM v3.0 &bull; 
             <a href="#" onclick="logout()" style="color:#00ff88; text-decoration:none;">Logout</a>
         </div>
     </div>
@@ -835,6 +1087,7 @@ function loadStats() {
         document.getElementById('expiredKeys').textContent = data.expired_keys || 0;
         document.getElementById('customKeys').textContent = data.custom_keys || 0;
         document.getElementById('totalUsers').textContent = data.total_users || 0;
+        document.getElementById('totalDevices').textContent = data.total_devices || 0;
     })
     .catch(() => console.log('Stats load error'));
 }
@@ -864,13 +1117,19 @@ function loadKeys() {
                 ? `<span class="duration-badge duration-days">${k.duration_value}d</span>`
                 : `<span class="duration-badge duration-hours">${k.duration_value}h</span>`;
             
+            const deviceLimit = k.device_limit || 1;
+            const currentDevices = k.current_devices || 0;
+            const devicesRemaining = k.devices_remaining || 0;
+            const deviceDisplay = `${currentDevices}/${deviceLimit}`;
+            const deviceClass = currentDevices >= deviceLimit ? 'device-limit-full' : 'device-limit-available';
+            
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="font-family:monospace; font-size:12px;">${k.key} ${customTag}</td>
                 <td>${durationDisplay}</td>
+                <td class="${deviceClass}">${deviceDisplay}</td>
                 <td class="${statusClass}">${status}</td>
                 <td>${k.used_by || '-'}</td>
-                <td style="font-family:monospace; font-size:10px;">${k.device ? k.device.substring(0,16)+'...' : '-'}</td>
                 <td style="font-size:11px;">${new Date(k.expires).toLocaleString()}</td>
                 <td><button class="btn btn-danger btn-sm" onclick="deleteKey('${k.key}')"><i class="fas fa-trash"></i></button></td>
             `;
@@ -969,6 +1228,7 @@ function generateKeys() {
     const count = document.getElementById('keyCount').value || 1;
     const durationValue = document.getElementById('durationValue').value || 24;
     const durationType = document.getElementById('durationType').value;
+    const deviceLimit = document.getElementById('deviceLimit').value || 1;
 
     fetch('/api/generate', {
         method: 'POST',
@@ -976,7 +1236,8 @@ function generateKeys() {
         body: JSON.stringify({ 
             count: parseInt(count), 
             duration_value: parseInt(durationValue),
-            duration_type: durationType
+            duration_type: durationType,
+            device_limit: parseInt(deviceLimit)
         })
     })
     .then(res => res.json())
@@ -986,6 +1247,7 @@ function generateKeys() {
             data.keys.forEach(k => {
                 html += `<div class="key-display">${k} <button class="copy-btn" onclick="copyKey('${k}')"><i class="fas fa-copy"></i></button></div>`;
             });
+            html += `<div style="width:100%; color:#888; font-size:12px; margin-top:5px;">Device limit: ${data.device_limit} device(s) per key</div>`;
             html += '</div>';
             document.getElementById('generatedKeys').innerHTML = html;
             toast(`Generated ${data.count} key(s)`, 'success');
@@ -1004,6 +1266,7 @@ function generateCustomKeys() {
     const keysText = document.getElementById('customKeysText').value;
     const durationValue = document.getElementById('customDurationValue').value || 24;
     const durationType = document.getElementById('customDurationType').value;
+    const deviceLimit = document.getElementById('customDeviceLimit').value || 1;
 
     if (!keysText.trim()) {
         toast('Please enter at least one custom key', 'error');
@@ -1023,7 +1286,8 @@ function generateCustomKeys() {
         body: JSON.stringify({ 
             keys: keys,
             duration_value: parseInt(durationValue),
-            duration_type: durationType
+            duration_type: durationType,
+            device_limit: parseInt(deviceLimit)
         })
     })
     .then(res => res.json())
@@ -1036,6 +1300,7 @@ function generateCustomKeys() {
             if (data.duplicates && data.duplicates.length > 0) {
                 html += `<div style="color:#ffaa00; font-size:12px; margin-top:10px;">⚠️ Duplicates skipped: ${data.duplicates.join(', ')}</div>`;
             }
+            html += `<div style="width:100%; color:#888; font-size:12px; margin-top:5px;">Device limit: ${data.device_limit} device(s) per key</div>`;
             html += '</div>';
             document.getElementById('customGeneratedKeys').innerHTML = html;
             document.getElementById('customKeysText').value = '';
