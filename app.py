@@ -1,4 +1,4 @@
-# app.py - Complete Premium Key System with Device Management
+# app.py - Complete Fixed Version with Working GET/POST
 import os
 import json
 import hashlib
@@ -65,12 +65,12 @@ def log_activity(action, details):
     save_data(ACTIVITY_FILE, activity)
 
 # =============================================
-# FIXED: CHECK KEY ENDPOINT (GET)
+# FIXED: CHECK KEY ENDPOINT (GET ONLY - NO JSON)
 # =============================================
 
 @app.route('/api/check', methods=['GET'])
 def check_key():
-    """Simple GET endpoint to check key status"""
+    """Simple GET endpoint to check key status - NO JSON REQUIRED"""
     try:
         key = request.args.get('key')
         device = request.args.get('device')
@@ -79,7 +79,7 @@ def check_key():
             return jsonify({
                 "success": False,
                 "error": "Key parameter required",
-                "usage": "/api/check?key=YOUR_KEY&device=YOUR_DEVICE"
+                "usage": "/api/check?key=YOUR_KEY"
             }), 400
         
         keys = load_data(KEYS_FILE)
@@ -103,8 +103,7 @@ def check_key():
                         "valid": False,
                         "error": "Device mismatch",
                         "status": "DEVICE_MISMATCH",
-                        "key": key,
-                        "registered_device": k['device'][:16] + "..." if k['device'] else None
+                        "key": key
                     })
                 
                 # Check expiry
@@ -163,40 +162,28 @@ def check_key():
 
 @app.route('/api/login', methods=['POST'])
 def login_key():
-    """Login endpoint for Java app - checks key and device"""
     try:
         data = request.json
         key = data.get('key')
         device = data.get('device') or get_device_id(request)
         
         if not key:
-            return jsonify({
-                "success": False,
-                "error": "Key required"
-            }), 400
+            return jsonify({"success": False, "error": "Key required"}), 400
         
         keys = load_data(KEYS_FILE)
         
         for k in keys:
             if k['key'] == key:
-                # Check if key is used
                 if not k['used']:
-                    return jsonify({
-                        "success": False,
-                        "error": "Key not activated",
-                        "status": "INACTIVE"
-                    }), 400
+                    return jsonify({"success": False, "error": "Key not activated", "status": "INACTIVE"}), 400
                 
-                # Check device match
                 if k['device'] != device:
                     return jsonify({
                         "success": False,
                         "error": "Device mismatch",
-                        "status": "DEVICE_MISMATCH",
-                        "registered_device": k['device'][:16] + "..." if k['device'] else None
+                        "status": "DEVICE_MISMATCH"
                     }), 400
                 
-                # Check expiry
                 expires = datetime.fromisoformat(k['expires'])
                 if expires < datetime.now():
                     return jsonify({
@@ -206,21 +193,13 @@ def login_key():
                         "expires": k['expires']
                     }), 400
                 
-                # Calculate remaining
                 remaining_seconds = (expires - datetime.now()).total_seconds()
                 if k['duration_type'] == 'days':
-                    remaining = int(remaining_seconds / 86400)
-                    remaining_text = f"{remaining} days"
+                    remaining_text = f"{int(remaining_seconds / 86400)} days"
                 else:
-                    remaining = int(remaining_seconds / 3600)
-                    remaining_text = f"{remaining} hours"
+                    remaining_text = f"{int(remaining_seconds / 3600)} hours"
                 
-                # Log login
-                log_activity("LOGIN", {
-                    "key": key,
-                    "username": k['used_by'],
-                    "device": device
-                })
+                log_activity("LOGIN", {"key": key, "username": k['used_by'], "device": device})
                 
                 return jsonify({
                     "success": True,
@@ -236,11 +215,7 @@ def login_key():
                     "duration_value": k['duration_value']
                 })
         
-        return jsonify({
-            "success": False,
-            "error": "Invalid key",
-            "status": "INVALID"
-        }), 400
+        return jsonify({"success": False, "error": "Invalid key", "status": "INVALID"}), 400
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
@@ -379,17 +354,11 @@ def activate_key():
         for k in keys:
             if k['key'] == key:
                 if k['used']:
-                    return jsonify({
-                        "error": "Key already used",
-                        "status": "USED"
-                    }), 400
+                    return jsonify({"error": "Key already used", "status": "USED"}), 400
                 
                 expires = datetime.fromisoformat(k['expires'])
                 if expires < datetime.now():
-                    return jsonify({
-                        "error": "Key expired",
-                        "status": "EXPIRED"
-                    }), 400
+                    return jsonify({"error": "Key expired", "status": "EXPIRED"}), 400
                 
                 k['used'] = True
                 k['used_by'] = username
@@ -448,18 +417,10 @@ def verify_key():
         for k in keys:
             if k['key'] == key:
                 if not k['used']:
-                    return jsonify({
-                        "valid": False,
-                        "error": "Key not activated",
-                        "status": "INACTIVE"
-                    }), 400
+                    return jsonify({"valid": False, "error": "Key not activated", "status": "INACTIVE"}), 400
                 
                 if k['device'] != device:
-                    return jsonify({
-                        "valid": False,
-                        "error": "Device mismatch",
-                        "status": "DEVICE_MISMATCH"
-                    }), 400
+                    return jsonify({"valid": False, "error": "Device mismatch", "status": "DEVICE_MISMATCH"}), 400
                 
                 expires = datetime.fromisoformat(k['expires'])
                 if expires < datetime.now():
@@ -472,11 +433,9 @@ def verify_key():
                 
                 remaining_seconds = (expires - datetime.now()).total_seconds()
                 if k['duration_type'] == 'days':
-                    remaining = int(remaining_seconds / 86400)
-                    remaining_text = f"{remaining} days"
+                    remaining_text = f"{int(remaining_seconds / 86400)} days"
                 else:
-                    remaining = int(remaining_seconds / 3600)
-                    remaining_text = f"{remaining} hours"
+                    remaining_text = f"{int(remaining_seconds / 3600)} hours"
                 
                 return jsonify({
                     "valid": True,
@@ -489,11 +448,7 @@ def verify_key():
                     "remaining_hours": int(remaining_seconds / 3600)
                 })
         
-        return jsonify({
-            "valid": False,
-            "error": "Invalid key",
-            "status": "INVALID"
-        }), 400
+        return jsonify({"valid": False, "error": "Invalid key", "status": "INVALID"}), 400
     except Exception as e:
         return jsonify({"valid": False, "error": str(e)}), 400
 
@@ -806,8 +761,7 @@ HTML = '''
                 <div style="background:#0a0a0a; padding:20px; border-radius:8px; border:1px solid #222;">
                     <h4 style="color:#00ff88;"><i class="fas fa-plug"></i> API Endpoints for Java App</h4>
                     <div class="api-example">
-                        <p><span class="method">GET</span> /api/check?key=KEY - Check key status (no device required)</p>
-                        <p><span class="method">GET</span> /api/check?key=KEY&device=DEVICE - Check key with device</p>
+                        <p><span class="method">GET</span> /api/check?key=KEY - Check key status (works in browser)</p>
                         <p><span class="method">POST</span> /api/login - Login with key and device</p>
                         <p><span class="method">POST</span> /api/generate - Auto generate keys (admin)</p>
                         <p><span class="method">POST</span> /api/generate/custom - Add custom keys</p>
@@ -818,7 +772,7 @@ HTML = '''
                     <div style="margin-top:15px; background:#0a0a0a; padding:15px; border-radius:6px; border:1px solid #222;">
                         <p style="color:#888; font-size:13px;"><strong>Check Key Example (Browser):</strong></p>
                         <pre style="color:#00ff88; font-size:12px; background:#000; padding:10px; border-radius:4px; overflow-x:auto;">
-https://your-app.railway.app/api/check?key=I4UWOC6TJZDI9822</pre>
+https://your-app.railway.app/api/check?key=YOUR_KEY</pre>
                     </div>
                     <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
                         <button class="btn btn-danger" onclick="clearAll()"><i class="fas fa-trash"></i> Clear All Data</button>
