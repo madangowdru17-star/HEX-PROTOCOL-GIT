@@ -1,50 +1,83 @@
-# app.py - Full Secure Device Auto-Register System
+# app.py - Persistent PostgreSQL Storage with full UI
 import os
 import json
 import hashlib
 import secrets
 import string
+import re
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template_string, session
 from flask_cors import CORS
 from functools import wraps
-import re
+from sqlalchemy import create_engine, Column, String, Boolean, DateTime, Integer, JSON
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql import func
 
 app = Flask(__name__)
 app.secret_key = "HEX_KEYS_SUPREME_SECURE_2026"
 CORS(app)
 
 # =============================================
-# DATA FILES
+# DATABASE SETUP
 # =============================================
 
-KEYS_FILE = "keys.json"
-DEVICES_FILE = "devices.json"
-ACTIVITY_FILE = "activity.json"
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if not DATABASE_URL:
+    DATABASE_URL = 'sqlite:///keys.db'  # fallback for local testing
 
-def load_data(filename):
-    try:
-        with open(filename, 'r') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
-
-def save_data(filename, data):
-    with open(filename, 'w') as f:
-        json.dump(data, f, indent=4)
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(bind=engine)
+Base = declarative_base()
 
 # =============================================
-# SECURITY HELPERS
+# MODELS
+# =============================================
+
+class Key(Base):
+    __tablename__ = 'keys'
+    key = Column(String(32), primary_key=True)
+    duration_type = Column(String(10))
+    duration_value = Column(Integer)
+    created = Column(DateTime, default=func.now())
+    expires = Column(DateTime)
+    used = Column(Boolean, default=False)
+    activated = Column(DateTime, nullable=True)
+    status = Column(String(20), default='ACTIVE')
+    is_custom = Column(Boolean, default=False)
+    device_limit = Column(Integer, default=1)
+
+class Device(Base):
+    __tablename__ = 'devices'
+    id = Column(Integer, primary_key=True)
+    device_id = Column(String(64), nullable=False)
+    key = Column(String(32), nullable=False)
+    registered = Column(DateTime, default=func.now())
+
+class Activity(Base):
+    __tablename__ = 'activity'
+    id = Column(Integer, primary_key=True)
+    timestamp = Column(DateTime, default=func.now())
+    action = Column(String(50))
+    details = Column(JSON)
+
+# Create tables
+Base.metadata.create_all(engine)
+
+# =============================================
+# HELPERS
 # =============================================
 
 def sanitize_key(key):
-    """Clean and validate key"""
     if not key:
         return None
     return re.sub(r'[^A-Z0-9]', '', key.upper().strip())
 
+def generate_key():
+    chars = string.ascii_uppercase + string.digits
+    return ''.join(secrets.choice(chars) for _ in range(16))
+
 def get_device_id(request):
-    """Get unique device ID from request"""
     user_agent = request.headers.get('User-Agent', 'unknown')
     ip = request.remote_addr
     combined = f"{user_agent}|{ip}"
@@ -59,431 +92,198 @@ def admin_required(f):
     return decorated
 
 def log_activity(action, details):
-    activity = load_data(ACTIVITY_FILE)
-    activity.append({
-        "timestamp": datetime.now().isoformat(),
-        "action": action,
-        "details": details
-    })
-    save_data(ACTIVITY_FILE, activity)
+    session_db = SessionLocal()
+    activity = Activity(action=action, details=details)
+    session_db.add(activity)
+    session_db.commit()
+    session_db.close()
 
 # =============================================
-# MAIN LOGIN API - Java Uses This
+# API ENDPOINTS (responses unchanged)
 # =============================================
 
 @app.route('/api/login', methods=['POST'])
 def login_key():
-    """
-    Java sends: { "key": "KEY", "device": "DEVICE_ID" }
-    Response: SUCCESS or FAILED with status
-    """
     try:
         data = request.json
         key = sanitize_key(data.get('key'))
         device = data.get('device') or get_device_id(request)
-        
-        # Validate input
-        if not key:
-            return jsonify({
-                "success": False,
-                "status": "ERROR",
-                "message": "Key is required"
-            }), 400
-        
-        if not device or len(device) < 5:
-            return jsonify({
-                "success": False,
-                "status": "ERROR",
-                "message": "Valid device ID is required"
-            }), 400
-        
-        # Load data
-        keys = load_data(KEYS_FILE)
-        devices = load_data(DEVICES_FILE)
-        
-        # Find key
-        for k in keys:
-            if k['key'] == key:
-                
-                # CHECK 1: Is key activated?
-                if not k.get('used', False):
-                    return jsonify({
-                        "success": False,
-                        "status": "INACTIVE",
-                        "message": "Key not activated. Please activate first."
-                    }), 400
-                
-                # CHECK 2: Is key expired?
-                expires = datetime.fromisoformat(k['expires'])
-                if expires < datetime.now():
-                    return jsonify({
-                        "success": False,
-                        "status": "EXPIRED",
-                        "message": "Key has expired",
-                        "expires": k['expires']
-                    }), 400
-                
-                # CHECK 3: Is device already registered?
-                device_exists = any(d['device_id'] == device and d['key'] == key for d in devices)
-                
-                if device_exists:
-                    # ✅ DEVICE FOUND - LOGIN SUCCESS
-                    log_activity("LOGIN_SUCCESS", {"key": key, "device": device})
-                    remaining_seconds = (expires - datetime.now()).total_seconds()
-                    
-                    return jsonify({
-                        "success": True,
-                        "status": "SUCCESS",
-                        "message": "Login successful",
-                        "key": key,
-                        "device": device,
-                        "expires": k['expires'],
-                        "remaining_hours": int(remaining_seconds / 3600),
-                        "duration_type": k.get('duration_type', 'hours'),
-                        "duration_value": k.get('duration_value', 24)
-                    })
-                
-                else:
-                    # CHECK 4: Device limit reached?
-                    device_count = sum(1 for d in devices if d['key'] == key)
-                    max_devices = k.get('device_limit', 1)
-                    
-                    if device_count >= max_devices:
-                        return jsonify({
-                            "success": False,
-                            "status": "DEVICE_LIMIT_REACHED",
-                            "message": f"Device limit reached (max {max_devices} devices)",
-                            "device_limit": max_devices,
-                            "current_devices": device_count
-                        }), 400
-                    
-                    # ✅ NEW DEVICE - AUTO REGISTER AND LOGIN
-                    device_data = {
-                        "device_id": device,
-                        "key": key,
-                        "registered": datetime.now().isoformat()
-                    }
-                    devices.append(device_data)
-                    save_data(DEVICES_FILE, devices)
-                    
-                    log_activity("DEVICE_AUTO_REGISTER", {"key": key, "device": device})
-                    remaining_seconds = (expires - datetime.now()).total_seconds()
-                    
-                    return jsonify({
-                        "success": True,
-                        "status": "SUCCESS",
-                        "message": "Device registered and login successful",
-                        "key": key,
-                        "device": device,
-                        "expires": k['expires'],
-                        "remaining_hours": int(remaining_seconds / 3600),
-                        "device_limit": max_devices,
-                        "current_devices": device_count + 1,
-                        "devices_remaining": max_devices - (device_count + 1)
-                    })
-        
-        # Key not found
-        return jsonify({
-            "success": False,
-            "status": "INVALID",
-            "message": "Invalid key"
-        }), 400
-        
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "status": "ERROR",
-            "message": str(e)
-        }), 500
 
-# =============================================
-# ACTIVATE KEY - Java First Time Setup
-# =============================================
+        if not key:
+            return jsonify({"success": False, "status": "ERROR", "message": "Key is required"}), 400
+        if not device or len(device) < 5:
+            return jsonify({"success": False, "status": "ERROR", "message": "Valid device ID is required"}), 400
+
+        session_db = SessionLocal()
+        db_key = session_db.query(Key).filter_by(key=key).first()
+        if not db_key:
+            session_db.close()
+            return jsonify({"success": False, "status": "INVALID", "message": "Invalid key"}), 400
+
+        if not db_key.used:
+            session_db.close()
+            return jsonify({"success": False, "status": "INACTIVE", "message": "Key not activated. Please activate first."}), 400
+
+        if db_key.expires < datetime.now():
+            session_db.close()
+            return jsonify({
+                "success": False,
+                "status": "EXPIRED",
+                "message": "Key has expired",
+                "expires": db_key.expires.isoformat()
+            }), 400
+
+        device_exists = session_db.query(Device).filter_by(device_id=device, key=key).first()
+        device_count = session_db.query(Device).filter_by(key=key).count()
+        max_devices = db_key.device_limit
+
+        if device_exists:
+            log_activity("LOGIN_SUCCESS", {"key": key, "device": device})
+            remaining = (db_key.expires - datetime.now()).total_seconds() // 3600
+            return jsonify({
+                "success": True,
+                "status": "SUCCESS",
+                "message": "Login successful",
+                "key": key,
+                "device": device,
+                "expires": db_key.expires.isoformat(),
+                "remaining_hours": int(remaining),
+                "duration_type": db_key.duration_type,
+                "duration_value": db_key.duration_value
+            })
+        else:
+            if device_count >= max_devices:
+                session_db.close()
+                return jsonify({
+                    "success": False,
+                    "status": "DEVICE_LIMIT_REACHED",
+                    "message": f"Device limit reached (max {max_devices} devices)",
+                    "device_limit": max_devices,
+                    "current_devices": device_count
+                }), 400
+
+            new_device = Device(device_id=device, key=key)
+            session_db.add(new_device)
+            session_db.commit()
+            log_activity("DEVICE_AUTO_REGISTER", {"key": key, "device": device})
+
+            remaining = (db_key.expires - datetime.now()).total_seconds() // 3600
+            return jsonify({
+                "success": True,
+                "status": "SUCCESS",
+                "message": "Device registered and login successful",
+                "key": key,
+                "device": device,
+                "expires": db_key.expires.isoformat(),
+                "remaining_hours": int(remaining),
+                "duration_type": db_key.duration_type,
+                "duration_value": db_key.duration_value,
+                "device_limit": max_devices,
+                "current_devices": device_count + 1,
+                "devices_remaining": max_devices - (device_count + 1)
+            })
+    except Exception as e:
+        return jsonify({"success": False, "status": "ERROR", "message": str(e)}), 500
+    finally:
+        session_db.close()
 
 @app.route('/api/activate', methods=['POST'])
 def activate_key():
-    """
-    Java sends: { "key": "KEY", "device": "DEVICE_ID" }
-    Activates the key and registers first device
-    """
     try:
         data = request.json
         key = sanitize_key(data.get('key'))
         device = data.get('device') or get_device_id(request)
-        
-        if not key:
-            return jsonify({
-                "success": False,
-                "status": "ERROR",
-                "message": "Key is required"
-            }), 400
-        
-        keys = load_data(KEYS_FILE)
-        devices = load_data(DEVICES_FILE)
-        
-        for k in keys:
-            if k['key'] == key:
-                
-                if k.get('used', False):
-                    return jsonify({
-                        "success": False,
-                        "status": "ALREADY_ACTIVATED",
-                        "message": "Key already activated"
-                    }), 400
-                
-                expires = datetime.fromisoformat(k['expires'])
-                if expires < datetime.now():
-                    return jsonify({
-                        "success": False,
-                        "status": "EXPIRED",
-                        "message": "Key has expired"
-                    }), 400
-                
-                # Activate key
-                k['used'] = True
-                k['activated'] = datetime.now().isoformat()
-                k['status'] = "ACTIVATED"
-                
-                # Register first device
-                device_data = {
-                    "device_id": device,
-                    "key": key,
-                    "registered": datetime.now().isoformat()
-                }
-                devices.append(device_data)
-                
-                save_data(KEYS_FILE, keys)
-                save_data(DEVICES_FILE, devices)
-                log_activity("KEY_ACTIVATED", {"key": key, "device": device})
-                
-                return jsonify({
-                    "success": True,
-                    "status": "ACTIVATED",
-                    "message": "Key activated successfully",
-                    "key": key,
-                    "device": device,
-                    "expires": k['expires'],
-                    "device_limit": k.get('device_limit', 1)
-                })
-        
-        return jsonify({
-            "success": False,
-            "status": "INVALID",
-            "message": "Invalid key"
-        }), 400
-        
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "status": "ERROR",
-            "message": str(e)
-        }), 500
 
-# =============================================
-# CHECK KEY - Quick Status Check
-# =============================================
+        if not key:
+            return jsonify({"success": False, "status": "ERROR", "message": "Key is required"}), 400
+
+        session_db = SessionLocal()
+        db_key = session_db.query(Key).filter_by(key=key).first()
+        if not db_key:
+            session_db.close()
+            return jsonify({"success": False, "status": "INVALID", "message": "Invalid key"}), 400
+
+        if db_key.used:
+            session_db.close()
+            return jsonify({"success": False, "status": "ALREADY_ACTIVATED", "message": "Key already activated"}), 400
+
+        if db_key.expires < datetime.now():
+            session_db.close()
+            return jsonify({"success": False, "status": "EXPIRED", "message": "Key has expired"}), 400
+
+        db_key.used = True
+        db_key.activated = datetime.now()
+        db_key.status = "ACTIVATED"
+
+        new_device = Device(device_id=device, key=key)
+        session_db.add(new_device)
+        session_db.commit()
+
+        log_activity("KEY_ACTIVATED", {"key": key, "device": device})
+
+        return jsonify({
+            "success": True,
+            "status": "ACTIVATED",
+            "message": "Key activated successfully",
+            "key": key,
+            "device": device,
+            "expires": db_key.expires.isoformat(),
+            "device_limit": db_key.device_limit
+        })
+    except Exception as e:
+        return jsonify({"success": False, "status": "ERROR", "message": str(e)}), 500
+    finally:
+        session_db.close()
 
 @app.route('/api/check', methods=['GET'])
 def check_key():
     try:
         key = sanitize_key(request.args.get('key'))
         device = request.args.get('device')
-        
+
         if not key:
-            return jsonify({
-                "success": False,
-                "status": "ERROR",
-                "message": "Key required"
-            }), 400
-        
-        keys = load_data(KEYS_FILE)
-        devices = load_data(DEVICES_FILE)
-        
-        for k in keys:
-            if k['key'] == key:
-                
-                if not k.get('used', False):
-                    return jsonify({
-                        "success": False,
-                        "status": "INACTIVE",
-                        "message": "Key not activated"
-                    }), 400
-                
-                expires = datetime.fromisoformat(k['expires'])
-                if expires < datetime.now():
-                    return jsonify({
-                        "success": False,
-                        "status": "EXPIRED",
-                        "message": "Key expired"
-                    }), 400
-                
-                # Check device if provided
-                if device:
-                    device_exists = any(d['device_id'] == device and d['key'] == key for d in devices)
-                    if not device_exists:
-                        return jsonify({
-                            "success": False,
-                            "status": "DEVICE_NOT_FOUND",
-                            "message": "Device not registered"
-                        }), 400
-                
-                remaining_seconds = (expires - datetime.now()).total_seconds()
-                device_count = sum(1 for d in devices if d['key'] == key)
-                
-                return jsonify({
-                    "success": True,
-                    "status": "VALID",
-                    "key": key,
-                    "expires": k['expires'],
-                    "remaining_hours": int(remaining_seconds / 3600),
-                    "device_limit": k.get('device_limit', 1),
-                    "current_devices": device_count,
-                    "devices_remaining": k.get('device_limit', 1) - device_count
-                })
-        
+            return jsonify({"success": False, "status": "ERROR", "message": "Key required"}), 400
+
+        session_db = SessionLocal()
+        db_key = session_db.query(Key).filter_by(key=key).first()
+        if not db_key:
+            session_db.close()
+            return jsonify({"success": False, "status": "INVALID", "message": "Invalid key"}), 400
+
+        if not db_key.used:
+            session_db.close()
+            return jsonify({"success": False, "status": "INACTIVE", "message": "Key not activated"}), 400
+
+        if db_key.expires < datetime.now():
+            session_db.close()
+            return jsonify({"success": False, "status": "EXPIRED", "message": "Key expired"}), 400
+
+        if device:
+            device_exists = session_db.query(Device).filter_by(device_id=device, key=key).first()
+            if not device_exists:
+                session_db.close()
+                return jsonify({"success": False, "status": "DEVICE_NOT_FOUND", "message": "Device not registered"}), 400
+
+        device_count = session_db.query(Device).filter_by(key=key).count()
+        remaining = (db_key.expires - datetime.now()).total_seconds() // 3600
+
         return jsonify({
-            "success": False,
-            "status": "INVALID",
-            "message": "Invalid key"
-        }), 400
-        
+            "success": True,
+            "status": "VALID",
+            "key": key,
+            "expires": db_key.expires.isoformat(),
+            "remaining_hours": int(remaining),
+            "device_limit": db_key.device_limit,
+            "current_devices": device_count,
+            "devices_remaining": db_key.device_limit - device_count
+        })
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "status": "ERROR",
-            "message": str(e)
-        }), 500
+        return jsonify({"success": False, "status": "ERROR", "message": str(e)}), 500
+    finally:
+        session_db.close()
 
 # =============================================
-# ADD DEVICE - Manual Add (Optional)
-# =============================================
-
-@app.route('/api/add/device', methods=['POST'])
-def add_device():
-    try:
-        data = request.json
-        key = sanitize_key(data.get('key'))
-        device = data.get('device') or get_device_id(request)
-        
-        if not key:
-            return jsonify({
-                "success": False,
-                "status": "ERROR",
-                "message": "Key required"
-            }), 400
-        
-        keys = load_data(KEYS_FILE)
-        devices = load_data(DEVICES_FILE)
-        
-        for k in keys:
-            if k['key'] == key:
-                
-                if not k.get('used', False):
-                    return jsonify({
-                        "success": False,
-                        "status": "INACTIVE",
-                        "message": "Key not activated"
-                    }), 400
-                
-                device_exists = any(d['device_id'] == device and d['key'] == key for d in devices)
-                if device_exists:
-                    return jsonify({
-                        "success": False,
-                        "status": "DEVICE_EXISTS",
-                        "message": "Device already registered"
-                    }), 400
-                
-                device_count = sum(1 for d in devices if d['key'] == key)
-                max_devices = k.get('device_limit', 1)
-                
-                if device_count >= max_devices:
-                    return jsonify({
-                        "success": False,
-                        "status": "DEVICE_LIMIT_REACHED",
-                        "message": f"Device limit reached (max {max_devices})",
-                        "device_limit": max_devices,
-                        "current_devices": device_count
-                    }), 400
-                
-                device_data = {
-                    "device_id": device,
-                    "key": key,
-                    "registered": datetime.now().isoformat()
-                }
-                devices.append(device_data)
-                save_data(DEVICES_FILE, devices)
-                log_activity("DEVICE_ADDED_MANUAL", {"key": key, "device": device})
-                
-                return jsonify({
-                    "success": True,
-                    "status": "DEVICE_ADDED",
-                    "message": "Device added successfully",
-                    "key": key,
-                    "device": device,
-                    "device_limit": max_devices,
-                    "current_devices": device_count + 1,
-                    "devices_remaining": max_devices - (device_count + 1)
-                })
-        
-        return jsonify({
-            "success": False,
-            "status": "INVALID",
-            "message": "Invalid key"
-        }), 400
-        
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "status": "ERROR",
-            "message": str(e)
-        }), 500
-
-# =============================================
-# GET KEY DEVICES
-# =============================================
-
-@app.route('/api/key/devices', methods=['GET'])
-def get_key_devices():
-    try:
-        key = sanitize_key(request.args.get('key'))
-        
-        if not key:
-            return jsonify({
-                "success": False,
-                "status": "ERROR",
-                "message": "Key required"
-            }), 400
-        
-        keys = load_data(KEYS_FILE)
-        devices = load_data(DEVICES_FILE)
-        
-        for k in keys:
-            if k['key'] == key:
-                key_devices = [d for d in devices if d['key'] == key]
-                return jsonify({
-                    "success": True,
-                    "key": key,
-                    "device_limit": k.get('device_limit', 1),
-                    "current_devices": len(key_devices),
-                    "devices": [d['device_id'] for d in key_devices],
-                    "devices_remaining": k.get('device_limit', 1) - len(key_devices)
-                })
-        
-        return jsonify({
-            "success": False,
-            "status": "INVALID",
-            "message": "Invalid key"
-        }), 400
-        
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "status": "ERROR",
-            "message": str(e)
-        }), 500
-
-# =============================================
-# ADMIN - Generate Keys
+# GENERATE & ADMIN ENDPOINTS
 # =============================================
 
 @app.route('/api/generate', methods=['POST'])
@@ -495,39 +295,32 @@ def generate_keys():
         duration_type = data.get('duration_type', 'hours')
         duration_value = int(data.get('duration_value', 24))
         device_limit = int(data.get('device_limit', 1))
-        
-        keys = load_data(KEYS_FILE)
+
+        session_db = SessionLocal()
         generated = []
-        
-        for i in range(count):
+
+        for _ in range(count):
             key = generate_key()
-            
             if duration_type == 'days':
-                expires = (datetime.now() + timedelta(days=duration_value)).isoformat()
+                expires = datetime.now() + timedelta(days=duration_value)
             else:
-                expires = (datetime.now() + timedelta(hours=duration_value)).isoformat()
-            
-            key_data = {
-                "key": key,
-                "duration_type": duration_type,
-                "duration_value": duration_value,
-                "created": datetime.now().isoformat(),
-                "expires": expires,
-                "used": False,
-                "activated": None,
-                "status": "ACTIVE",
-                "device_limit": device_limit
-            }
-            keys.append(key_data)
+                expires = datetime.now() + timedelta(hours=duration_value)
+
+            new_key = Key(
+                key=key,
+                duration_type=duration_type,
+                duration_value=duration_value,
+                expires=expires,
+                used=False,
+                status="ACTIVE",
+                device_limit=device_limit
+            )
+            session_db.add(new_key)
             generated.append(key)
-        
-        save_data(KEYS_FILE, keys)
-        log_activity("GENERATE", {
-            "count": count,
-            "duration": f"{duration_value} {duration_type}",
-            "device_limit": device_limit
-        })
-        
+
+        session_db.commit()
+        log_activity("GENERATE", {"count": count, "duration": f"{duration_value} {duration_type}", "device_limit": device_limit})
+
         return jsonify({
             "success": True,
             "keys": generated,
@@ -538,10 +331,8 @@ def generate_keys():
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
-
-def generate_key():
-    chars = string.ascii_uppercase + string.digits
-    return ''.join(secrets.choice(chars) for _ in range(16))
+    finally:
+        session_db.close()
 
 @app.route('/api/generate/custom', methods=['POST'])
 @admin_required
@@ -552,52 +343,45 @@ def generate_custom_keys():
         duration_type = data.get('duration_type', 'hours')
         duration_value = int(data.get('duration_value', 24))
         device_limit = int(data.get('device_limit', 1))
-        
+
         if not custom_keys:
             return jsonify({"success": False, "error": "No custom keys provided"}), 400
-        
-        keys = load_data(KEYS_FILE)
+
+        session_db = SessionLocal()
         generated = []
         duplicates = []
-        
+
         for custom_key in custom_keys:
-            custom_key = sanitize_key(custom_key)
-            if not custom_key:
+            clean_key = sanitize_key(custom_key)
+            if not clean_key:
                 continue
-            
-            existing = any(k['key'] == custom_key for k in keys)
+
+            existing = session_db.query(Key).filter_by(key=clean_key).first()
             if existing:
-                duplicates.append(custom_key)
+                duplicates.append(clean_key)
                 continue
-            
+
             if duration_type == 'days':
-                expires = (datetime.now() + timedelta(days=duration_value)).isoformat()
+                expires = datetime.now() + timedelta(days=duration_value)
             else:
-                expires = (datetime.now() + timedelta(hours=duration_value)).isoformat()
-            
-            key_data = {
-                "key": custom_key,
-                "duration_type": duration_type,
-                "duration_value": duration_value,
-                "created": datetime.now().isoformat(),
-                "expires": expires,
-                "used": False,
-                "activated": None,
-                "status": "ACTIVE",
-                "is_custom": True,
-                "device_limit": device_limit
-            }
-            keys.append(key_data)
-            generated.append(custom_key)
-        
-        save_data(KEYS_FILE, keys)
-        log_activity("GENERATE_CUSTOM", {
-            "count": len(generated),
-            "duplicates": len(duplicates),
-            "duration": f"{duration_value} {duration_type}",
-            "device_limit": device_limit
-        })
-        
+                expires = datetime.now() + timedelta(hours=duration_value)
+
+            new_key = Key(
+                key=clean_key,
+                duration_type=duration_type,
+                duration_value=duration_value,
+                expires=expires,
+                used=False,
+                status="ACTIVE",
+                is_custom=True,
+                device_limit=device_limit
+            )
+            session_db.add(new_key)
+            generated.append(clean_key)
+
+        session_db.commit()
+        log_activity("GENERATE_CUSTOM", {"count": len(generated), "duplicates": len(duplicates), "duration": f"{duration_value} {duration_type}", "device_limit": device_limit})
+
         return jsonify({
             "success": True,
             "keys": generated,
@@ -609,111 +393,217 @@ def generate_custom_keys():
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
+    finally:
+        session_db.close()
 
-# =============================================
-# ADMIN - Stats & Management
-# =============================================
+@app.route('/api/add/device', methods=['POST'])
+def add_device():
+    try:
+        data = request.json
+        key = sanitize_key(data.get('key'))
+        device = data.get('device') or get_device_id(request)
+
+        if not key:
+            return jsonify({"success": False, "status": "ERROR", "message": "Key required"}), 400
+
+        session_db = SessionLocal()
+        db_key = session_db.query(Key).filter_by(key=key).first()
+        if not db_key:
+            session_db.close()
+            return jsonify({"success": False, "status": "INVALID", "message": "Invalid key"}), 400
+
+        if not db_key.used:
+            session_db.close()
+            return jsonify({"success": False, "status": "INACTIVE", "message": "Key not activated"}), 400
+
+        device_exists = session_db.query(Device).filter_by(device_id=device, key=key).first()
+        if device_exists:
+            session_db.close()
+            return jsonify({"success": False, "status": "DEVICE_EXISTS", "message": "Device already registered"}), 400
+
+        device_count = session_db.query(Device).filter_by(key=key).count()
+        max_devices = db_key.device_limit
+
+        if device_count >= max_devices:
+            session_db.close()
+            return jsonify({
+                "success": False,
+                "status": "DEVICE_LIMIT_REACHED",
+                "message": f"Device limit reached (max {max_devices})",
+                "device_limit": max_devices,
+                "current_devices": device_count
+            }), 400
+
+        new_device = Device(device_id=device, key=key)
+        session_db.add(new_device)
+        session_db.commit()
+        log_activity("DEVICE_ADDED_MANUAL", {"key": key, "device": device})
+
+        return jsonify({
+            "success": True,
+            "status": "DEVICE_ADDED",
+            "message": "Device added successfully",
+            "key": key,
+            "device": device,
+            "device_limit": max_devices,
+            "current_devices": device_count + 1,
+            "devices_remaining": max_devices - (device_count + 1)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "status": "ERROR", "message": str(e)}), 500
+    finally:
+        session_db.close()
+
+@app.route('/api/key/devices', methods=['GET'])
+def get_key_devices():
+    try:
+        key = sanitize_key(request.args.get('key'))
+        if not key:
+            return jsonify({"success": False, "status": "ERROR", "message": "Key required"}), 400
+
+        session_db = SessionLocal()
+        db_key = session_db.query(Key).filter_by(key=key).first()
+        if not db_key:
+            session_db.close()
+            return jsonify({"success": False, "status": "INVALID", "message": "Invalid key"}), 400
+
+        devices = session_db.query(Device).filter_by(key=key).all()
+        device_list = [d.device_id for d in devices]
+
+        return jsonify({
+            "success": True,
+            "key": key,
+            "device_limit": db_key.device_limit,
+            "current_devices": len(devices),
+            "devices": device_list,
+            "devices_remaining": db_key.device_limit - len(devices)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "status": "ERROR", "message": str(e)}), 500
+    finally:
+        session_db.close()
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     try:
-        keys = load_data(KEYS_FILE)
-        devices = load_data(DEVICES_FILE)
-        
-        total = len(keys)
-        used = sum(1 for k in keys if k.get('used', False))
-        active = total - used
-        expired = sum(1 for k in keys if datetime.fromisoformat(k['expires']) < datetime.now())
-        custom = sum(1 for k in keys if k.get('is_custom', False))
-        
+        session_db = SessionLocal()
+        total_keys = session_db.query(Key).count()
+        used_keys = session_db.query(Key).filter_by(used=True).count()
+        active_keys = total_keys - used_keys
+        expired_keys = session_db.query(Key).filter(Key.expires < datetime.now()).count()
+        custom_keys = session_db.query(Key).filter_by(is_custom=True).count()
+        total_devices = session_db.query(Device).count()
+
         return jsonify({
-            "total_keys": total,
-            "used_keys": used,
-            "active_keys": active,
-            "expired_keys": expired,
-            "custom_keys": custom,
-            "total_devices": len(devices)
+            "total_keys": total_keys,
+            "used_keys": used_keys,
+            "active_keys": active_keys,
+            "expired_keys": expired_keys,
+            "custom_keys": custom_keys,
+            "total_devices": total_devices
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    finally:
+        session_db.close()
 
 @app.route('/api/keys', methods=['GET'])
 @admin_required
 def list_keys():
     try:
-        keys = load_data(KEYS_FILE)
-        devices = load_data(DEVICES_FILE)
-        
+        session_db = SessionLocal()
+        keys = session_db.query(Key).all()
+        devices = session_db.query(Device).all()
+
+        result = []
         for k in keys:
-            expires = datetime.fromisoformat(k['expires'])
-            if k.get('used', False):
-                if expires < datetime.now():
-                    k['status_display'] = "EXPIRED"
-                else:
-                    k['status_display'] = "ACTIVE"
-            else:
-                if expires < datetime.now():
-                    k['status_display'] = "EXPIRED"
-                else:
-                    k['status_display'] = "UNUSED"
-            
-            if k.get('is_custom', False):
-                k['status_display'] += " ✏️"
-            
-            key_devices = [d for d in devices if d['key'] == k['key']]
-            k['current_devices'] = len(key_devices)
-            k['device_limit'] = k.get('device_limit', 1)
-            k['devices_remaining'] = k['device_limit'] - len(key_devices)
-        
-        return jsonify(keys)
+            device_count = sum(1 for d in devices if d.key == k.key)
+            status_display = "ACTIVE" if k.used and k.expires > datetime.now() else \
+                             "EXPIRED" if k.expires < datetime.now() else \
+                             "UNUSED"
+            if k.is_custom:
+                status_display += " ✏️"
+            result.append({
+                "key": k.key,
+                "duration_type": k.duration_type,
+                "duration_value": k.duration_value,
+                "created": k.created.isoformat(),
+                "expires": k.expires.isoformat(),
+                "used": k.used,
+                "activated": k.activated.isoformat() if k.activated else None,
+                "status": k.status,
+                "is_custom": k.is_custom,
+                "device_limit": k.device_limit,
+                "current_devices": device_count,
+                "devices_remaining": k.device_limit - device_count,
+                "status_display": status_display
+            })
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    finally:
+        session_db.close()
 
 @app.route('/api/devices', methods=['GET'])
 @admin_required
 def list_devices():
     try:
-        return jsonify(load_data(DEVICES_FILE))
+        session_db = SessionLocal()
+        devices = session_db.query(Device).all()
+        result = [{"device_id": d.device_id, "key": d.key, "registered": d.registered.isoformat()} for d in devices]
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    finally:
+        session_db.close()
 
 @app.route('/api/activity', methods=['GET'])
 @admin_required
 def list_activity():
     try:
-        return jsonify(load_data(ACTIVITY_FILE))
+        session_db = SessionLocal()
+        activities = session_db.query(Activity).order_by(Activity.timestamp.desc()).limit(50).all()
+        result = [{"timestamp": a.timestamp.isoformat(), "action": a.action, "details": a.details} for a in activities]
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    finally:
+        session_db.close()
 
 @app.route('/api/delete/<key>', methods=['DELETE'])
 @admin_required
 def delete_key(key):
     try:
-        key = sanitize_key(key)
-        keys = load_data(KEYS_FILE)
-        keys = [k for k in keys if k['key'] != key]
-        save_data(KEYS_FILE, keys)
-        
-        devices = load_data(DEVICES_FILE)
-        devices = [d for d in devices if d['key'] != key]
-        save_data(DEVICES_FILE, devices)
-        
-        log_activity("DELETE", {"key": key})
-        return jsonify({"success": True, "message": "Key deleted"})
+        clean_key = sanitize_key(key)
+        session_db = SessionLocal()
+        db_key = session_db.query(Key).filter_by(key=clean_key).first()
+        if db_key:
+            session_db.delete(db_key)
+            session_db.query(Device).filter_by(key=clean_key).delete()
+            session_db.commit()
+            log_activity("DELETE", {"key": clean_key})
+            return jsonify({"success": True, "message": "Key deleted"})
+        return jsonify({"success": False, "error": "Key not found"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    finally:
+        session_db.close()
 
 @app.route('/api/clear', methods=['DELETE'])
 @admin_required
 def clear_all():
     try:
-        save_data(KEYS_FILE, [])
-        save_data(DEVICES_FILE, [])
-        save_data(ACTIVITY_FILE, [])
+        session_db = SessionLocal()
+        session_db.query(Key).delete()
+        session_db.query(Device).delete()
+        session_db.query(Activity).delete()
+        session_db.commit()
         log_activity("CLEAR_ALL", {})
         return jsonify({"success": True, "message": "All data cleared"})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    finally:
+        session_db.close()
 
 # =============================================
 # ADMIN AUTH
@@ -738,7 +628,7 @@ def admin_logout():
     return jsonify({"success": True})
 
 # =============================================
-# ADMIN UI
+# UI
 # =============================================
 
 HTML = '''
@@ -747,7 +637,7 @@ HTML = '''
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HEX KEY SYSTEM - SECURE</title>
+    <title>HEX KEY SYSTEM</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
