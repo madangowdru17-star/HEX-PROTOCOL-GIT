@@ -1,15 +1,16 @@
-# app.py - Persistent PostgreSQL Storage with full UI
+# app.py - Persistent PostgreSQL with debugging
 import os
 import json
 import hashlib
 import secrets
 import string
 import re
+import sys
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template_string, session
 from flask_cors import CORS
 from functools import wraps
-from sqlalchemy import create_engine, Column, String, Boolean, DateTime, Integer, JSON
+from sqlalchemy import create_engine, Column, String, Boolean, DateTime, Integer, JSON, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
@@ -19,14 +20,29 @@ app.secret_key = "HEX_KEYS_SUPREME_SECURE_2026"
 CORS(app)
 
 # =============================================
-# DATABASE SETUP
+# DATABASE SETUP WITH VERIFICATION
 # =============================================
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if not DATABASE_URL:
-    DATABASE_URL = 'sqlite:///keys.db'  # fallback for local testing
+    print("❌ ERROR: DATABASE_URL environment variable not set!", file=sys.stderr)
+    print("   Please add a PostgreSQL database in Railway and redeploy.", file=sys.stderr)
+    # Fallback to SQLite for local testing only
+    DATABASE_URL = 'sqlite:///keys.db'
+    print("⚠️  Using SQLite fallback – data will NOT persist on Railway!", file=sys.stderr)
 
-engine = create_engine(DATABASE_URL)
+print(f"🔗 Connecting to database: {DATABASE_URL[:30]}...")
+
+try:
+    engine = create_engine(DATABASE_URL)
+    # Test connection
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    print("✅ Database connection successful!")
+except Exception as e:
+    print(f"❌ Database connection failed: {e}", file=sys.stderr)
+    sys.exit(1)
+
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
@@ -62,7 +78,9 @@ class Activity(Base):
     details = Column(JSON)
 
 # Create tables
+print("📦 Creating tables if they don't exist...")
 Base.metadata.create_all(engine)
+print("✅ Tables ready.")
 
 # =============================================
 # HELPERS
@@ -93,10 +111,29 @@ def admin_required(f):
 
 def log_activity(action, details):
     session_db = SessionLocal()
-    activity = Activity(action=action, details=details)
-    session_db.add(activity)
-    session_db.commit()
-    session_db.close()
+    try:
+        activity = Activity(action=action, details=details)
+        session_db.add(activity)
+        session_db.commit()
+    except Exception as e:
+        session_db.rollback()
+        print(f"⚠️ Failed to log activity: {e}", file=sys.stderr)
+    finally:
+        session_db.close()
+
+# =============================================
+# DB CHECK ENDPOINT (for debugging)
+# =============================================
+
+@app.route('/db-check', methods=['GET'])
+def db_check():
+    try:
+        session_db = SessionLocal()
+        result = session_db.execute(text("SELECT 1")).scalar()
+        session_db.close()
+        return jsonify({"status": "ok", "message": "Database connected", "result": result})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # =============================================
 # API ENDPOINTS (responses unchanged)
@@ -183,6 +220,7 @@ def login_key():
                 "devices_remaining": max_devices - (device_count + 1)
             })
     except Exception as e:
+        print(f"❌ Login error: {e}", file=sys.stderr)
         return jsonify({"success": False, "status": "ERROR", "message": str(e)}), 500
     finally:
         session_db.close()
@@ -231,6 +269,7 @@ def activate_key():
             "device_limit": db_key.device_limit
         })
     except Exception as e:
+        print(f"❌ Activate error: {e}", file=sys.stderr)
         return jsonify({"success": False, "status": "ERROR", "message": str(e)}), 500
     finally:
         session_db.close()
@@ -278,12 +317,13 @@ def check_key():
             "devices_remaining": db_key.device_limit - device_count
         })
     except Exception as e:
+        print(f"❌ Check error: {e}", file=sys.stderr)
         return jsonify({"success": False, "status": "ERROR", "message": str(e)}), 500
     finally:
         session_db.close()
 
 # =============================================
-# GENERATE & ADMIN ENDPOINTS
+# GENERATE & ADMIN ENDPOINTS (unchanged)
 # =============================================
 
 @app.route('/api/generate', methods=['POST'])
@@ -330,6 +370,7 @@ def generate_keys():
             "device_limit": device_limit
         })
     except Exception as e:
+        print(f"❌ Generate error: {e}", file=sys.stderr)
         return jsonify({"success": False, "error": str(e)}), 400
     finally:
         session_db.close()
@@ -392,6 +433,7 @@ def generate_custom_keys():
             "device_limit": device_limit
         })
     except Exception as e:
+        print(f"❌ Generate custom error: {e}", file=sys.stderr)
         return jsonify({"success": False, "error": str(e)}), 400
     finally:
         session_db.close()
@@ -450,6 +492,7 @@ def add_device():
             "devices_remaining": max_devices - (device_count + 1)
         })
     except Exception as e:
+        print(f"❌ Add device error: {e}", file=sys.stderr)
         return jsonify({"success": False, "status": "ERROR", "message": str(e)}), 500
     finally:
         session_db.close()
@@ -479,6 +522,7 @@ def get_key_devices():
             "devices_remaining": db_key.device_limit - len(devices)
         })
     except Exception as e:
+        print(f"❌ Get devices error: {e}", file=sys.stderr)
         return jsonify({"success": False, "status": "ERROR", "message": str(e)}), 500
     finally:
         session_db.close()
@@ -503,6 +547,7 @@ def get_stats():
             "total_devices": total_devices
         })
     except Exception as e:
+        print(f"❌ Stats error: {e}", file=sys.stderr)
         return jsonify({"error": str(e)}), 400
     finally:
         session_db.close()
@@ -540,6 +585,7 @@ def list_keys():
             })
         return jsonify(result)
     except Exception as e:
+        print(f"❌ List keys error: {e}", file=sys.stderr)
         return jsonify({"error": str(e)}), 400
     finally:
         session_db.close()
@@ -553,6 +599,7 @@ def list_devices():
         result = [{"device_id": d.device_id, "key": d.key, "registered": d.registered.isoformat()} for d in devices]
         return jsonify(result)
     except Exception as e:
+        print(f"❌ List devices error: {e}", file=sys.stderr)
         return jsonify({"error": str(e)}), 400
     finally:
         session_db.close()
@@ -566,6 +613,7 @@ def list_activity():
         result = [{"timestamp": a.timestamp.isoformat(), "action": a.action, "details": a.details} for a in activities]
         return jsonify(result)
     except Exception as e:
+        print(f"❌ List activity error: {e}", file=sys.stderr)
         return jsonify({"error": str(e)}), 400
     finally:
         session_db.close()
@@ -585,6 +633,7 @@ def delete_key(key):
             return jsonify({"success": True, "message": "Key deleted"})
         return jsonify({"success": False, "error": "Key not found"}), 404
     except Exception as e:
+        print(f"❌ Delete error: {e}", file=sys.stderr)
         return jsonify({"error": str(e)}), 400
     finally:
         session_db.close()
@@ -601,6 +650,7 @@ def clear_all():
         log_activity("CLEAR_ALL", {})
         return jsonify({"success": True, "message": "All data cleared"})
     except Exception as e:
+        print(f"❌ Clear error: {e}", file=sys.stderr)
         return jsonify({"error": str(e)}), 400
     finally:
         session_db.close()
@@ -628,11 +678,10 @@ def admin_logout():
     return jsonify({"success": True})
 
 # =============================================
-# UI
+# UI (unchanged – same as before)
 # =============================================
 
-HTML = '''
-<!DOCTYPE html>
+HTML = '''<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -1068,8 +1117,7 @@ function toast(msg, type) {
 setInterval(loadAll, 30000);
 </script>
 </body>
-</html>
-'''
+</html>'''
 
 @app.route('/')
 def admin_panel():
