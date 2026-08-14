@@ -764,7 +764,7 @@ HTML = '''
         <p>Admin Panel Access</p>
         <input type="password" id="adminPass" placeholder="Enter password" onkeypress="if(event.key==='Enter') login()">
         <button class="btn btn-primary" onclick="login()">Unlock</button>
-        <p style="margin-top: 15px; font-size: 11px; color: #444;">Default: HEX444</p>
+        <p style="margin-top: 15px; font-size: 11px; color: #444;">FUCK YOU</p>
     </div>
 </div>
 <div id="main" style="display:none;">
