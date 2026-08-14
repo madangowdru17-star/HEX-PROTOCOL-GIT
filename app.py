@@ -1,4 +1,4 @@
-# app.py - Persistent PostgreSQL with debugging
+# app.py - Persistent PostgreSQL with HEX444 Admin Password
 import os
 import json
 import hashlib
@@ -27,7 +27,6 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 if not DATABASE_URL:
     print("❌ ERROR: DATABASE_URL environment variable not set!", file=sys.stderr)
     print("   Please add a PostgreSQL database in Railway and redeploy.", file=sys.stderr)
-    # Fallback to SQLite for local testing only
     DATABASE_URL = 'sqlite:///keys.db'
     print("⚠️  Using SQLite fallback – data will NOT persist on Railway!", file=sys.stderr)
 
@@ -35,7 +34,6 @@ print(f"🔗 Connecting to database: {DATABASE_URL[:30]}...")
 
 try:
     engine = create_engine(DATABASE_URL)
-    # Test connection
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
     print("✅ Database connection successful!")
@@ -323,7 +321,7 @@ def check_key():
         session_db.close()
 
 # =============================================
-# GENERATE & ADMIN ENDPOINTS (unchanged)
+# GENERATE & ADMIN ENDPOINTS
 # =============================================
 
 @app.route('/api/generate', methods=['POST'])
@@ -656,14 +654,14 @@ def clear_all():
         session_db.close()
 
 # =============================================
-# ADMIN AUTH
+# ADMIN AUTH - CHANGED TO HEX444
 # =============================================
 
 @app.route('/admin/login', methods=['POST'])
 def admin_login():
     try:
         data = request.json
-        if data.get('password') == 'admin123':
+        if data.get('password') == 'HEX444':  # CHANGED FROM admin123 TO HEX444
             session['admin'] = True
             log_activity("ADMIN_LOGIN", {})
             return jsonify({"success": True})
@@ -678,10 +676,11 @@ def admin_logout():
     return jsonify({"success": True})
 
 # =============================================
-# UI (unchanged – same as before)
+# UI
 # =============================================
 
-HTML = '''<!DOCTYPE html>
+HTML = '''
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -765,7 +764,7 @@ HTML = '''<!DOCTYPE html>
         <p>Admin Panel Access</p>
         <input type="password" id="adminPass" placeholder="Enter password" onkeypress="if(event.key==='Enter') login()">
         <button class="btn btn-primary" onclick="login()">Unlock</button>
-        <p style="margin-top: 15px; font-size: 11px; color: #444;">Default: admin123</p>
+        <p style="margin-top: 15px; font-size: 11px; color: #444;">Default: HEX444</p>
     </div>
 </div>
 <div id="main" style="display:none;">
@@ -1117,7 +1116,8 @@ function toast(msg, type) {
 setInterval(loadAll, 30000);
 </script>
 </body>
-</html>'''
+</html>
+'''
 
 @app.route('/')
 def admin_panel():
