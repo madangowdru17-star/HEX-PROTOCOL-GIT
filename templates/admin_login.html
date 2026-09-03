@@ -3,274 +3,272 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HEX CHEATS GITXOS - Admin</title>
+    <title>HEX CHEATS GITXOS - Premium Admin Portal</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
         
         body {
-            font-family: 'Orbitron', sans-serif;
-            background: #0a0a0a;
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #000814 0%, #001040 50%, #000814 100%);
+            background-attachment: fixed;
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             color: #fff;
-            background-image: 
-                radial-gradient(ellipse at 10% 20%, rgba(0,255,136,0.05) 0%, transparent 50%),
-                radial-gradient(ellipse at 90% 80%, rgba(0,255,136,0.03) 0%, transparent 50%);
-        }
-        
-        .login-container {
-            background: rgba(17,17,17,0.95);
-            border: 1px solid rgba(0,255,136,0.2);
-            border-radius: 20px;
-            padding: 50px 40px;
-            width: 100%;
-            max-width: 420px;
-            text-align: center;
-            box-shadow: 0 0 80px rgba(0,255,136,0.05), inset 0 0 80px rgba(0,255,136,0.02);
-            backdrop-filter: blur(20px);
-            position: relative;
             overflow: hidden;
         }
         
-        .login-container::before {
-            content: '';
+        .background-elements {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .gradient-ball {
             position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            background: linear-gradient(45deg, transparent, rgba(0,255,136,0.1), transparent);
-            border-radius: 20px;
-            z-index: -1;
-            background-size: 400% 400%;
-            animation: gradient 3s ease infinite;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.3;
+            animation: float 20s ease-in-out infinite;
         }
         
-        @keyframes gradient {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+        .ball-1 { width: 300px; height: 300px; background: #00ff88; top: -100px; left: -100px; animation-delay: 0s; }
+        .ball-2 { width: 250px; height: 250px; background: #0066ff; bottom: -80px; right: -80px; animation-delay: 5s; }
+        
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(30px, 30px); }
         }
         
-        .login-container .icon {
-            font-size: 48px;
+        .login-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 480px;
+            padding: 20px;
+        }
+        
+        .login-card {
+            background: rgba(20, 20, 50, 0.7);
+            border: 1px solid rgba(0, 255, 136, 0.15);
+            border-radius: 24px;
+            padding: 60px 40px;
+            backdrop-filter: blur(30px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        
+        .icon {
+            font-size: 56px;
             color: #00ff88;
-            margin-bottom: 10px;
-            text-shadow: 0 0 30px rgba(0,255,136,0.3);
+            margin-bottom: 20px;
+            animation: pulse 2s ease-in-out infinite;
         }
         
-        .login-container h1 {
-            font-size: 28px;
-            font-weight: 900;
+        @keyframes pulse {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
+        
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
             background: linear-gradient(135deg, #00ff88, #00cc66);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: #999;
+            font-size: 12px;
             letter-spacing: 2px;
-        }
-        
-        .login-container .subtitle {
-            color: #666;
-            font-size: 11px;
-            letter-spacing: 3px;
             text-transform: uppercase;
-            margin-bottom: 30px;
-            font-weight: 400;
+            margin-bottom: 40px;
+            font-weight: 500;
         }
         
-        .login-container .subtitle span {
-            color: #00ff88;
-        }
-        
-        .login-container .input-group {
+        .input-group {
             margin-bottom: 20px;
             text-align: left;
         }
         
-        .login-container .input-group label {
+        label {
             display: block;
-            color: #888;
-            font-size: 10px;
+            color: #999;
+            font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 1px;
             margin-bottom: 8px;
+            font-weight: 600;
         }
         
-        .login-container .input-group input {
+        input[type="password"] {
             width: 100%;
             padding: 14px 18px;
-            background: rgba(26,26,26,0.8);
-            border: 1px solid rgba(255,255,255,0.05);
+            background: rgba(30, 40, 80, 0.4);
+            border: 1px solid rgba(0, 255, 136, 0.15);
             border-radius: 12px;
             color: #fff;
-            font-size: 16px;
-            font-family: 'Orbitron', sans-serif;
-            transition: all 0.3s;
+            font-size: 14px;
+            font-family: 'Outfit', sans-serif;
+            transition: all 0.3s ease;
         }
         
-        .login-container .input-group input:focus {
+        input[type="password"]::placeholder {
+            color: #666;
+        }
+        
+        input[type="password"]:focus {
             outline: none;
-            border-color: rgba(0,255,136,0.3);
-            box-shadow: 0 0 30px rgba(0,255,136,0.05);
-            background: rgba(26,26,26,1);
+            border-color: rgba(0, 255, 136, 0.4);
+            background: rgba(30, 40, 80, 0.6);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.1);
         }
         
-        .login-container .btn-login {
+        .login-btn {
             width: 100%;
-            padding: 16px;
+            padding: 14px 20px;
             background: linear-gradient(135deg, #00ff88, #00cc66);
-            color: #0a0a0a;
             border: none;
             border-radius: 12px;
-            font-size: 14px;
-            font-weight: 700;
-            font-family: 'Orbitron', sans-serif;
-            cursor: pointer;
-            transition: all 0.3s;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
-        
-        .login-container .btn-login:hover {
-            transform: scale(1.02);
-            box-shadow: 0 0 40px rgba(0,255,136,0.2);
-        }
-        
-        .login-container .error-msg {
-            color: #ff4444;
+            color: #000;
             font-size: 12px;
-            margin-top: 12px;
-            min-height: 20px;
-            font-weight: 400;
+            font-weight: 700;
             letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+            font-family: 'Outfit', sans-serif;
         }
         
-        .login-container .footer-text {
-            margin-top: 25px;
-            color: #333;
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(0, 255, 136, 0.4);
+        }
+        
+        .login-btn:active {
+            transform: translateY(0);
+        }
+        
+        .status-text {
+            color: #666;
             font-size: 10px;
-            letter-spacing: 2px;
+            margin-top: 30px;
+            letter-spacing: 1px;
             text-transform: uppercase;
         }
         
-        .login-container .footer-text span {
+        .status-text.success {
             color: #00ff88;
         }
         
-        .toast {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            padding: 14px 24px;
+        .status-text.error {
+            color: #ff6464;
+        }
+        
+        .info-box {
+            background: rgba(0, 255, 136, 0.05);
+            border: 1px solid rgba(0, 255, 136, 0.1);
             border-radius: 12px;
-            font-weight: 600;
-            z-index: 10000;
-            animation: slideIn 0.5s ease;
-            font-family: 'Orbitron', sans-serif;
-            font-size: 12px;
+            padding: 16px;
+            margin-top: 20px;
+            font-size: 10px;
+            color: #aaa;
+            line-height: 1.6;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 9px;
+            color: #555;
             letter-spacing: 1px;
+            text-transform: uppercase;
         }
         
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        
-        .toast-success { background: #00cc66; color: #0a0a0a; }
-        .toast-error { background: #ff4444; color: #fff; }
-        
-        .status-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            background: #00ff88;
-            border-radius: 50%;
-            margin-right: 8px;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-        
-        @media (max-width: 480px) {
-            .login-container { padding: 30px 20px; }
-            .login-container h1 { font-size: 22px; }
+        .footer span {
+            color: #00ff88;
+            font-weight: 600;
         }
     </style>
 </head>
 <body>
+    <div class="background-elements">
+        <div class="gradient-ball ball-1"></div>
+        <div class="gradient-ball ball-2"></div>
+    </div>
+    
     <div class="login-container">
-        <div class="icon">
-            <i class="fas fa-crown"></i>
-        </div>
-        <h1>HEX CHEATS</h1>
-        <p class="subtitle"><span>GITXOS</span> · ADMIN ACCESS</p>
-        
-        <div class="input-group">
-            <label><i class="fas fa-lock"></i> SECURE KEY</label>
-            <input type="password" id="adminPass" placeholder="Enter access code" onkeypress="if(event.key==='Enter') login()">
-        </div>
-        
-        <button class="btn-login" onclick="login()">
-            <i class="fas fa-unlock"></i> UNLOCK SYSTEM
-        </button>
-        
-        <div class="error-msg" id="errorMsg"></div>
-        
-        <div class="footer-text">
-            <span class="status-dot"></span> SYSTEM SECURE · v3.0
+        <div class="login-card">
+            <div class="icon">
+                <i class="fas fa-crown"></i>
+            </div>
+            <h1>HEX CHEATS</h1>
+            <p class="subtitle">GITXOS SECURE ADMIN PORTAL</p>
+            
+            <form id="loginForm">
+                <div class="input-group">
+                    <label><i class="fas fa-lock"></i> Admin Password</label>
+                    <input type="password" id="password" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="login-btn">
+                    <i class="fas fa-sign-in-alt"></i> ACCESS PANEL
+                </button>
+            </form>
+            
+            <p id="statusText" class="status-text"></p>
+            
+            <div class="info-box">
+                <i class="fas fa-shield-alt"></i> SECURE AUTHENTICATION REQUIRED
+            </div>
+            
+            <div class="footer">
+                <i class="fas fa-lock"></i> <span>PREMIUM</span> SECURE KEY MANAGEMENT v3.0
+            </div>
         </div>
     </div>
 
     <script>
-        function login() {
-            const pass = document.getElementById('adminPass').value;
-            const errorMsg = document.getElementById('errorMsg');
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('password').value;
+            const statusText = document.getElementById('statusText');
             
-            if (!pass) {
-                errorMsg.textContent = 'ENTER ACCESS CODE';
-                return;
-            }
-            
-            fetch('/admin/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: pass })
-            })
-            .then(res => res.json())
-            .then(data => {
+            try {
+                const response = await fetch('/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                
+                const data = await response.json();
+                
                 if (data.success) {
-                    window.location.href = '/dashboard';
+                    statusText.textContent = 'AUTHENTICATED ✓';
+                    statusText.className = 'status-text success';
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 800);
                 } else {
-                    errorMsg.textContent = 'ACCESS DENIED';
-                    document.getElementById('adminPass').value = '';
-                    document.getElementById('adminPass').focus();
-                    toast('INVALID ACCESS CODE', 'error');
+                    statusText.textContent = 'INVALID PASSWORD';
+                    statusText.className = 'status-text error';
+                    document.getElementById('password').value = '';
                 }
-            })
-            .catch(() => {
-                errorMsg.textContent = 'CONNECTION ERROR';
-                toast('CONNECTION ERROR', 'error');
-            });
-        }
-
-        function toast(msg, type) {
-            const existing = document.querySelector('.toast');
-            if (existing) existing.remove();
-            const div = document.createElement('div');
-            div.className = `toast toast-${type}`;
-            div.textContent = msg;
-            document.body.appendChild(div);
-            setTimeout(() => div.remove(), 3000);
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('adminPass').focus();
+            } catch (error) {
+                statusText.textContent = 'ERROR: ' + error.message;
+                statusText.className = 'status-text error';
+            }
         });
     </script>
 </body>
