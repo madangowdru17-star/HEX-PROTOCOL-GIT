@@ -397,14 +397,18 @@ def check_device():
         session_db.close()
 
 # =============================================
-# GENERATE 5-HOUR KEY API
+# GENERATE 5-HOUR KEY API (POST & GET)
 # =============================================
 
+# POST endpoint for 5-hour key generation
 @app.route('/api/generate/5hour', methods=['POST'])
-def generate_5hour_key_api():
+def generate_5hour_key_post():
     try:
         data = request.json
         count = int(data.get('count', 1))
+        
+        if count < 1 or count > 50:
+            return jsonify({"success": False, "error": "Count must be between 1 and 50"}), 400
         
         session_db = SessionLocal()
         generated = []
@@ -422,13 +426,13 @@ def generate_5hour_key_api():
                 status='ACTIVE',
                 device_limit=1,
                 key_type='5HOUR',
-                generated_by='API_5HOUR'
+                generated_by='API_5HOUR_POST'
             )
             session_db.add(new_key)
             generated.append(key)
         
         session_db.commit()
-        log_activity("GENERATE_5HOUR", {"count": count, "keys": generated})
+        log_activity("GENERATE_5HOUR_POST", {"count": count, "keys": generated})
         
         return jsonify({
             "success": True,
@@ -440,7 +444,114 @@ def generate_5hour_key_api():
             "format": "HEX-XXXX-XXXX"
         })
     except Exception as e:
-        print(f"Generate 5-hour error: {e}", file=sys.stderr)
+        print(f"Generate 5-hour (POST) error: {e}", file=sys.stderr)
+        return jsonify({"success": False, "error": str(e)}), 400
+    finally:
+        session_db.close()
+
+# GET endpoint for 5-hour key generation (Browser friendly)
+@app.route('/api/generate/5hour', methods=['GET'])
+def generate_5hour_key_get():
+    try:
+        # Get count from query parameter, default to 1
+        count = int(request.args.get('count', 1))
+        
+        # Validate count
+        if count < 1 or count > 50:
+            return jsonify({"success": False, "error": "Count must be between 1 and 50"}), 400
+
+        session_db = SessionLocal()
+        generated = []
+        
+        for _ in range(count):
+            key = generate_5hour_key()
+            expires = datetime.now() + timedelta(hours=5)
+            
+            new_key = Key(
+                key=key,
+                duration_type='hours',
+                duration_value=5,
+                expires=expires,
+                used=False,
+                status='ACTIVE',
+                device_limit=1,
+                key_type='5HOUR',
+                generated_by='API_5HOUR_GET'
+            )
+            session_db.add(new_key)
+            generated.append(key)
+        
+        session_db.commit()
+        log_activity("GENERATE_5HOUR_GET", {"count": count, "keys": generated})
+
+        return jsonify({
+            "success": True,
+            "keys": generated,
+            "count": count,
+            "duration_type": "hours",
+            "duration_value": 5,
+            "key_type": "5HOUR",
+            "format": "HEX-XXXX-XXXX"
+        })
+    except Exception as e:
+        print(f"Generate 5-hour (GET) error: {e}", file=sys.stderr)
+        return jsonify({"success": False, "error": str(e)}), 400
+    finally:
+        session_db.close()
+
+# =============================================
+# GENERATE STANDARD KEYS (POST)
+# =============================================
+
+@app.route('/api/generate', methods=['POST'])
+@admin_required
+def generate_keys():
+    try:
+        data = request.json
+        count = int(data.get('count', 1))
+        duration_type = data.get('duration_type', 'hours')
+        duration_value = int(data.get('duration_value', 24))
+        device_limit = int(data.get('device_limit', 1))
+        key_type = data.get('key_type', 'STANDARD')
+
+        session_db = SessionLocal()
+        generated = []
+
+        for _ in range(count):
+            key = generate_key()
+            if duration_type == 'days':
+                expires = datetime.now() + timedelta(days=duration_value)
+            else:
+                expires = datetime.now() + timedelta(hours=duration_value)
+
+            new_key = Key(
+                key=key,
+                duration_type=duration_type,
+                duration_value=duration_value,
+                expires=expires,
+                used=False,
+                status="ACTIVE",
+                device_limit=device_limit,
+                key_type=key_type,
+                generated_by="ADMIN"
+            )
+            session_db.add(new_key)
+            generated.append(key)
+
+        session_db.commit()
+        log_activity("GENERATE", {"count": count, "duration": f"{duration_value} {duration_type}", "device_limit": device_limit})
+
+        return jsonify({
+            "success": True,
+            "keys": generated,
+            "count": count,
+            "duration_type": duration_type,
+            "duration_value": duration_value,
+            "device_limit": device_limit,
+            "key_type": key_type
+        })
+    except Exception as e:
+        print(f"Generate error: {e}", file=sys.stderr)
         return jsonify({"success": False, "error": str(e)}), 400
     finally:
         session_db.close()
@@ -512,63 +623,6 @@ def generate_custom_any_key():
         })
     except Exception as e:
         print(f"Generate custom any error: {e}", file=sys.stderr)
-        return jsonify({"success": False, "error": str(e)}), 400
-    finally:
-        session_db.close()
-
-# =============================================
-# GENERATE & ADMIN ENDPOINTS
-# =============================================
-
-@app.route('/api/generate', methods=['POST'])
-@admin_required
-def generate_keys():
-    try:
-        data = request.json
-        count = int(data.get('count', 1))
-        duration_type = data.get('duration_type', 'hours')
-        duration_value = int(data.get('duration_value', 24))
-        device_limit = int(data.get('device_limit', 1))
-        key_type = data.get('key_type', 'STANDARD')
-
-        session_db = SessionLocal()
-        generated = []
-
-        for _ in range(count):
-            key = generate_key()
-            if duration_type == 'days':
-                expires = datetime.now() + timedelta(days=duration_value)
-            else:
-                expires = datetime.now() + timedelta(hours=duration_value)
-
-            new_key = Key(
-                key=key,
-                duration_type=duration_type,
-                duration_value=duration_value,
-                expires=expires,
-                used=False,
-                status="ACTIVE",
-                device_limit=device_limit,
-                key_type=key_type,
-                generated_by="ADMIN"
-            )
-            session_db.add(new_key)
-            generated.append(key)
-
-        session_db.commit()
-        log_activity("GENERATE", {"count": count, "duration": f"{duration_value} {duration_type}", "device_limit": device_limit})
-
-        return jsonify({
-            "success": True,
-            "keys": generated,
-            "count": count,
-            "duration_type": duration_type,
-            "duration_value": duration_value,
-            "device_limit": device_limit,
-            "key_type": key_type
-        })
-    except Exception as e:
-        print(f"Generate error: {e}", file=sys.stderr)
         return jsonify({"success": False, "error": str(e)}), 400
     finally:
         session_db.close()
