@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEX KEY SYSTEM - Devices Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: #fff; min-height: 100vh; }
+        
+        .header { background: linear-gradient(135deg, #00ff88, #00cc66); padding: 16px 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .header h1 { color: #0a0a0a; font-size: 22px; }
+        .header h1 i { margin-right: 10px; }
+        .header .badge { background: #0a0a0a; color: #00ff88; padding: 5px 15px; border-radius: 20px; font-size: 12px; }
+        .header .user-info { display: flex; align-items: center; gap: 15px; }
+        .header .user-info .logout-btn { background: rgba(0,0,0,0.3); color: #0a0a0a; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.3s; }
+        .header .user-info .logout-btn:hover { background: rgba(0,0,0,0.5); }
+        
+        .nav { background: #111; border-bottom: 1px solid #222; padding: 0 30px; display: flex; gap: 5px; flex-wrap: wrap; }
+        .nav a { padding: 14px 20px; color: #666; text-decoration: none; font-size: 13px; font-weight: 600; transition: 0.3s; border-bottom: 3px solid transparent; }
+        .nav a:hover { color: #00ff88; border-bottom-color: #00ff88; }
+        .nav a.active { color: #00ff88; border-bottom-color: #00ff88; }
+        .nav a i { margin-right: 8px; }
+        
+        .container { max-width: 1400px; margin: 0 auto; padding: 25px; }
+        
+        .panel { background: #111; border: 1px solid #222; border-radius: 12px; padding: 25px; margin-bottom: 25px; }
+        .panel h3 { color: #00ff88; margin-bottom: 15px; font-size: 18px; }
+        .panel h3 i { margin-right: 10px; }
+        
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.3s; font-size: 12px; }
+        .btn-primary { background: #00ff88; color: #0a0a0a; }
+        .btn-primary:hover { transform: scale(1.05); }
+        .btn-info { background: #3399ff; color: #fff; }
+        .btn-info:hover { transform: scale(1.05); }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 10px; color: #666; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid #222; }
+        td { padding: 10px; border-bottom: 1px solid #1a1a1a; }
+        tr:hover { background: #0d0d0d; }
+        
+        .scrollable { max-height: 500px; overflow-y: auto; }
+        .scrollable::-webkit-scrollbar { width: 6px; }
+        .scrollable::-webkit-scrollbar-track { background: #0a0a0a; }
+        .scrollable::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+        .scrollable::-webkit-scrollbar-thumb:hover { background: #00ff88; }
+        
+        .input-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 15px; }
+        .input-group input { padding: 10px 14px; background: #1a1a1a; border: 2px solid #222; border-radius: 8px; color: #fff; font-size: 14px; flex: 1; min-width: 150px; }
+        .input-group input:focus { outline: none; border-color: #00ff88; }
+        
+        .status-badge { display: inline-block; padding: 2px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .status-registered { background: #1a3a2a; color: #00ff88; }
+        .status-invalid { background: #3a1a1a; color: #ff4444; }
+        .status-unknown { background: #1a1a2a; color: #666; }
+        
+        .toast { position: fixed; bottom: 30px; right: 30px; padding: 12px 24px; border-radius: 8px; font-weight: 600; z-index: 10000; animation: slideIn 0.5s ease; }
+        .toast-success { background: #00cc66; color: #0a0a0a; }
+        .toast-error { background: #ff4444; color: #fff; }
+        .toast-info { background: #3399ff; color: #fff; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        .footer { text-align: center; padding: 20px; color: #444; font-size: 12px; border-top: 1px solid #111; margin-top: 20px; }
+        
+        .check-result { margin-top: 10px; padding: 12px 16px; background: #0a0a0a; border-radius: 8px; border: 1px solid #222; font-family: monospace; font-size: 13px; }
+        .check-result .found { color: #00ff88; }
+        .check-result .not-found { color: #ffaa00; }
+        .check-result .error { color: #ff4444; }
+        .check-result .detail { color: #888; font-size: 12px; }
+        
+        @media (max-width: 768px) {
+            .header { flex-direction: column; gap: 10px; padding: 15px; }
+            .nav { padding: 0 15px; overflow-x: auto; flex-wrap: nowrap; }
+            .nav a { padding: 12px 15px; font-size: 12px; white-space: nowrap; }
+            .input-group { flex-direction: column; }
+            .input-group input { width: 100%; }
+            table { font-size: 11px; }
+            td, th { padding: 6px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><i class="fas fa-laptop"></i> Devices Management</h1>
+        <div class="user-info">
+            <span class="badge"><i class="fas fa-shield-alt"></i> SECURE</span>
+            <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+    
+    <div class="nav">
+        <a href="/dashboard"><i class="fas fa-home"></i> Dashboard</a>
+        <a href="/keys"><i class="fas fa-keys"></i> Keys</a>
+        <a href="/devices" class="active"><i class="fas fa-laptop"></i> Devices</a>
+        <a href="/api-status"><i class="fas fa-code"></i> API Status</a>
+    </div>
+    
+    <div class="container">
+        <!-- Device Checker -->
+        <div class="panel" style="border-color: #3399ff;">
+            <h3><i class="fas fa-search"></i> Device Checker</h3>
+            <div class="input-group">
+                <input type="text" id="deviceCheckInput" placeholder="Enter Device ID to check..." style="font-family:monospace;">
+                <button class="btn btn-primary" onclick="checkDevice()"><i class="fas fa-search"></i> Check</button>
+            </div>
+            <div id="deviceCheckResult"></div>
+        </div>
+        
+        <!-- All Devices -->
+        <div class="panel">
+            <h3><i class="fas fa-list"></i> All Registered Devices</h3>
+            <div class="scrollable">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Device ID</th>
+                            <th>Associated Key</th>
+                            <th>IP Address</th>
+                            <th>Registered</th>
+                            <th>Last Activity</th>
+                        </tr>
+                    </thead>
+                    <tbody id="devicesTable"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <i class="fas fa-crown" style="color:#00ff88;"></i> HEX KEY SYSTEM v2.0 &bull; Secure Key Management
+        </div>
+    </div>
+
+    <script>
+        function loadDevices() {
+            fetch('/api/devices')
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('devicesTable');
+                    tbody.innerHTML = '';
+                    if (!data || data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#444; padding:30px;">No devices registered</td></tr>';
+                        return;
+                    }
+                    data.forEach(d => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="font-family:monospace; font-size:10px;">${d.device_id}</td>
+                            <td style="font-family:monospace; font-size:11px; color:#00ff88;">${d.key}</td>
+                            <td style="font-family:monospace; font-size:11px; color:#888;">${d.ip_address || 'Unknown'}</td>
+                            <td style="font-size:11px;">${new Date(d.registered).toLocaleString()}</td>
+                            <td style="font-size:11px; color:#888;">${d.last_activity ? new Date(d.last_activity).toLocaleString() : 'Never'}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                })
+                .catch(() => toast('Failed to load devices', 'error'));
+        }
+
+        function checkDevice() {
+            const deviceId = document.getElementById('deviceCheckInput').value.trim();
+            const resultDiv = document.getElementById('deviceCheckResult');
+            
+            if (!deviceId) {
+                resultDiv.innerHTML = '<div class="error" style="color:#ff4444;">Please enter a Device ID</div>';
+                return;
+            }
+
+            resultDiv.innerHTML = '<div style="color:#888;"><i class="fas fa-spinner fa-spin"></i> Checking...</div>';
+
+            fetch('/api/device/check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: deviceId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.registered) {
+                        resultDiv.innerHTML = `
+                            <div class="check-result">
+                                <div class="found"><i class="fas fa-check-circle"></i> Device is REGISTERED</div>
+                                <div class="detail">Associated Key: <span style="color:#00ff88; font-weight:bold;">${data.key}</span></div>
+                                <div class="detail">Registered: ${new Date(data.registered_at).toLocaleString()}</div>
+                                ${data.last_activity ? `<div class="detail">Last Activity: ${new Date(data.last_activity).toLocaleString()}</div>` : ''}
+                                <div class="detail">Key Status: ${data.is_key_valid ? '<span style="color:#00ff88;">Valid</span>' : '<span style="color:#ff4444;">Invalid/Expired</span>'}</div>
+                            </div>
+                        `;
+                        toast('Device found!', 'success');
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="check-result">
+                                <div class="not-found"><i class="fas fa-info-circle"></i> Device is NOT REGISTERED</div>
+                                <div class="detail">This device has not been registered with any key.</div>
+                            </div>
+                        `;
+                        toast('Device not registered', 'info');
+                    }
+                } else {
+                    resultDiv.innerHTML = `<div class="check-result"><div class="error"><i class="fas fa-exclamation-triangle"></i> Error: ${data.error || 'Unknown'}</div></div>`;
+                    toast('Check failed', 'error');
+                }
+            })
+            .catch(err => {
+                resultDiv.innerHTML = `<div class="check-result"><div class="error"><i class="fas fa-exclamation-triangle"></i> Connection error</div></div>`;
+                toast('Connection error', 'error');
+            });
+        }
+
+        function logout() {
+            if (!confirm('Logout?')) return;
+            fetch('/admin/logout').then(() => {
+                window.location.href = '/';
+            });
+        }
+
+        function toast(msg, type) {
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+            const div = document.createElement('div');
+            div.className = `toast toast-${type}`;
+            div.textContent = msg;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        // Load on page load
+        document.addEventListener('DOMContentLoaded', loadDevices);
+    </script>
+</body>
+</html>

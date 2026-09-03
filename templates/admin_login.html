@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEX KEY SYSTEM - Admin Login</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0a0a0a;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+        .login-container {
+            background: #111;
+            border: 2px solid #222;
+            border-radius: 16px;
+            padding: 50px 40px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+        }
+        .login-container .icon {
+            font-size: 48px;
+            color: #00ff88;
+            margin-bottom: 10px;
+        }
+        .login-container h1 {
+            font-size: 28px;
+            color: #00ff88;
+            margin-bottom: 5px;
+        }
+        .login-container .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+        .login-container .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .login-container .input-group label {
+            display: block;
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        .login-container .input-group input {
+            width: 100%;
+            padding: 14px 16px;
+            background: #1a1a1a;
+            border: 2px solid #222;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+        .login-container .input-group input:focus {
+            outline: none;
+            border-color: #00ff88;
+            box-shadow: 0 0 20px rgba(0,255,136,0.1);
+        }
+        .login-container .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: #00ff88;
+            color: #0a0a0a;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .login-container .btn-login:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 30px rgba(0,255,136,0.3);
+        }
+        .login-container .btn-login i {
+            margin-right: 8px;
+        }
+        .login-container .error-msg {
+            color: #ff4444;
+            font-size: 14px;
+            margin-top: 12px;
+            min-height: 20px;
+        }
+        .login-container .footer-text {
+            margin-top: 20px;
+            color: #444;
+            font-size: 11px;
+        }
+        .login-container .footer-text span {
+            color: #00ff88;
+        }
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            z-index: 10000;
+            animation: slideIn 0.5s ease;
+            background: #ff4444;
+            color: #fff;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast-success { background: #00cc66; color: #0a0a0a; }
+        .toast-error { background: #ff4444; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="icon">
+            <i class="fas fa-crown"></i>
+        </div>
+        <h1>HEX KEYS</h1>
+        <p class="subtitle">Admin Panel Access</p>
+        
+        <div class="input-group">
+            <label><i class="fas fa-lock"></i> Password</label>
+            <input type="password" id="adminPass" placeholder="Enter admin password" onkeypress="if(event.key==='Enter') login()">
+        </div>
+        
+        <button class="btn-login" onclick="login()">
+            <i class="fas fa-unlock"></i> Unlock Dashboard
+        </button>
+        
+        <div class="error-msg" id="errorMsg"></div>
+        
+        <div class="footer-text">
+            <i class="fas fa-shield-alt"></i> Secure System · <span>v2.0</span>
+        </div>
+    </div>
+
+    <script>
+        function login() {
+            const pass = document.getElementById('adminPass').value;
+            const errorMsg = document.getElementById('errorMsg');
+            
+            if (!pass) {
+                errorMsg.textContent = 'Please enter your password';
+                return;
+            }
+            
+            fetch('/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pass })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/dashboard';
+                } else {
+                    errorMsg.textContent = 'Invalid password. Please try again.';
+                    document.getElementById('adminPass').value = '';
+                    document.getElementById('adminPass').focus();
+                    toast('Invalid password', 'error');
+                }
+            })
+            .catch(() => {
+                errorMsg.textContent = 'Connection error. Please try again.';
+                toast('Connection error', 'error');
+            });
+        }
+
+        function toast(msg, type) {
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+            const div = document.createElement('div');
+            div.className = `toast toast-${type}`;
+            div.textContent = msg;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        // Focus on password field on load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('adminPass').focus();
+        });
+    </script>
+</body>
+</html>

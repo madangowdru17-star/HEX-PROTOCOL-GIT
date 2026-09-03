@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEX KEY SYSTEM - Keys Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: #fff; min-height: 100vh; }
+        
+        .header { background: linear-gradient(135deg, #00ff88, #00cc66); padding: 16px 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .header h1 { color: #0a0a0a; font-size: 22px; }
+        .header h1 i { margin-right: 10px; }
+        .header .badge { background: #0a0a0a; color: #00ff88; padding: 5px 15px; border-radius: 20px; font-size: 12px; }
+        .header .user-info { display: flex; align-items: center; gap: 15px; }
+        .header .user-info .logout-btn { background: rgba(0,0,0,0.3); color: #0a0a0a; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.3s; }
+        .header .user-info .logout-btn:hover { background: rgba(0,0,0,0.5); }
+        
+        .nav { background: #111; border-bottom: 1px solid #222; padding: 0 30px; display: flex; gap: 5px; flex-wrap: wrap; }
+        .nav a { padding: 14px 20px; color: #666; text-decoration: none; font-size: 13px; font-weight: 600; transition: 0.3s; border-bottom: 3px solid transparent; }
+        .nav a:hover { color: #00ff88; border-bottom-color: #00ff88; }
+        .nav a.active { color: #00ff88; border-bottom-color: #00ff88; }
+        .nav a i { margin-right: 8px; }
+        
+        .container { max-width: 1400px; margin: 0 auto; padding: 25px; }
+        
+        .panel { background: #111; border: 1px solid #222; border-radius: 12px; padding: 25px; margin-bottom: 25px; }
+        .panel h3 { color: #00ff88; margin-bottom: 15px; font-size: 18px; }
+        .panel h3 i { margin-right: 10px; }
+        
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.3s; font-size: 12px; }
+        .btn-danger { background: #ff4444; color: #fff; }
+        .btn-danger:hover { transform: scale(1.05); }
+        .btn-sm { padding: 4px 10px; font-size: 10px; }
+        
+        .status-active { color: #00ff88; }
+        .status-used { color: #ffaa00; }
+        .status-expired { color: #ff4444; }
+        .status-inactive { color: #666; }
+        
+        .duration-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .duration-hours { background: #1a3a2a; color: #00ff88; }
+        .duration-days { background: #1a2a3a; color: #66aaff; }
+        
+        .custom-tag { background: #ffaa00; color: #0a0a0a; padding: 1px 8px; border-radius: 10px; font-size: 9px; font-weight: 700; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 10px; color: #666; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid #222; }
+        td { padding: 10px; border-bottom: 1px solid #1a1a1a; }
+        tr:hover { background: #0d0d0d; }
+        
+        .scrollable { max-height: 500px; overflow-y: auto; }
+        .scrollable::-webkit-scrollbar { width: 6px; }
+        .scrollable::-webkit-scrollbar-track { background: #0a0a0a; }
+        .scrollable::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+        .scrollable::-webkit-scrollbar-thumb:hover { background: #00ff88; }
+        
+        .toast { position: fixed; bottom: 30px; right: 30px; padding: 12px 24px; border-radius: 8px; font-weight: 600; z-index: 10000; animation: slideIn 0.5s ease; }
+        .toast-success { background: #00cc66; color: #0a0a0a; }
+        .toast-error { background: #ff4444; color: #fff; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        .footer { text-align: center; padding: 20px; color: #444; font-size: 12px; border-top: 1px solid #111; margin-top: 20px; }
+        
+        .search-box { display: flex; gap: 10px; margin-bottom: 15px; }
+        .search-box input { padding: 10px 14px; background: #1a1a1a; border: 2px solid #222; border-radius: 8px; color: #fff; font-size: 14px; flex: 1; }
+        .search-box input:focus { outline: none; border-color: #00ff88; }
+        .search-box select { padding: 10px 14px; background: #1a1a1a; border: 2px solid #222; border-radius: 8px; color: #fff; font-size: 14px; }
+        .search-box select:focus { outline: none; border-color: #00ff88; }
+        
+        @media (max-width: 768px) {
+            .header { flex-direction: column; gap: 10px; padding: 15px; }
+            .nav { padding: 0 15px; overflow-x: auto; flex-wrap: nowrap; }
+            .nav a { padding: 12px 15px; font-size: 12px; white-space: nowrap; }
+            .search-box { flex-direction: column; }
+            table { font-size: 11px; }
+            td, th { padding: 6px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><i class="fas fa-keys"></i> Keys Management</h1>
+        <div class="user-info">
+            <span class="badge"><i class="fas fa-shield-alt"></i> SECURE</span>
+            <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+    
+    <div class="nav">
+        <a href="/dashboard"><i class="fas fa-home"></i> Dashboard</a>
+        <a href="/keys" class="active"><i class="fas fa-keys"></i> Keys</a>
+        <a href="/devices"><i class="fas fa-laptop"></i> Devices</a>
+        <a href="/api-status"><i class="fas fa-code"></i> API Status</a>
+    </div>
+    
+    <div class="container">
+        <div class="panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
+                <h3><i class="fas fa-list"></i> All Keys</h3>
+                <div>
+                    <button class="btn btn-danger" onclick="clearAll()"><i class="fas fa-trash"></i> Clear All</button>
+                </div>
+            </div>
+            
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search by key..." oninput="filterKeys()">
+                <select id="statusFilter" onchange="filterKeys()">
+                    <option value="all">All Status</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="EXPIRED">Expired</option>
+                    <option value="UNUSED">Unused</option>
+                    <option value="USED">Used</option>
+                </select>
+                <select id="typeFilter" onchange="filterKeys()">
+                    <option value="all">All Types</option>
+                    <option value="custom">Custom ✏️</option>
+                    <option value="generated">Generated</option>
+                </select>
+            </div>
+            
+            <div class="scrollable">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Duration</th>
+                            <th>Devices</th>
+                            <th>IP Restriction</th>
+                            <th>Status</th>
+                            <th>Expires</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="keysTable"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <i class="fas fa-crown" style="color:#00ff88;"></i> HEX KEY SYSTEM v2.0 &bull; Secure Key Management
+        </div>
+    </div>
+
+    <script>
+        let allKeys = [];
+
+        function loadKeys() {
+            fetch('/api/keys')
+                .then(res => res.json())
+                .then(data => {
+                    allKeys = data || [];
+                    renderKeys(allKeys);
+                })
+                .catch(() => toast('Failed to load keys', 'error'));
+        }
+
+        function renderKeys(keys) {
+            const tbody = document.getElementById('keysTable');
+            tbody.innerHTML = '';
+            
+            if (!keys || keys.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#444; padding:30px;">No keys found</td></tr>';
+                return;
+            }
+
+            keys.forEach(k => {
+                const status = k.status_display || 'UNKNOWN';
+                let statusClass = 'status-inactive';
+                if (status.includes('ACTIVE')) statusClass = 'status-active';
+                else if (status.includes('EXPIRED')) statusClass = 'status-expired';
+                else if (status.includes('USED')) statusClass = 'status-used';
+                
+                const durationDisplay = k.duration_type === 'days' 
+                    ? `<span class="duration-badge duration-days">${k.duration_value}d</span>`
+                    : `<span class="duration-badge duration-hours">${k.duration_value}h</span>`;
+                
+                const deviceDisplay = `${k.current_devices || 0}/${k.device_limit || 1}`;
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-family:monospace; font-size:12px;">${k.key} ${k.is_custom ? '<span class="custom-tag">✏️</span>' : ''}</td>
+                    <td>${durationDisplay}</td>
+                    <td>${deviceDisplay}</td>
+                    <td style="font-family:monospace; font-size:11px; color:#888;">${k.ip_restriction || 'None'}</td>
+                    <td class="${statusClass}">${status}</td>
+                    <td style="font-size:11px;">${new Date(k.expires).toLocaleString()}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="deleteKey('${k.key}')"><i class="fas fa-trash"></i></button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterKeys() {
+            const search = document.getElementById('searchInput').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('statusFilter').value;
+            const typeFilter = document.getElementById('typeFilter').value;
+
+            let filtered = allKeys;
+
+            if (search) {
+                filtered = filtered.filter(k => k.key.toLowerCase().includes(search));
+            }
+
+            if (statusFilter !== 'all') {
+                filtered = filtered.filter(k => {
+                    const status = k.status_display || 'UNKNOWN';
+                    if (statusFilter === 'ACTIVE') return status.includes('ACTIVE') && !status.includes('EXPIRED');
+                    if (statusFilter === 'EXPIRED') return status.includes('EXPIRED');
+                    if (statusFilter === 'UNUSED') return status === 'UNUSED';
+                    if (statusFilter === 'USED') return status.includes('USED') && !status.includes('EXPIRED');
+                    return true;
+                });
+            }
+
+            if (typeFilter !== 'all') {
+                filtered = filtered.filter(k => {
+                    if (typeFilter === 'custom') return k.is_custom;
+                    if (typeFilter === 'generated') return !k.is_custom;
+                    return true;
+                });
+            }
+
+            renderKeys(filtered);
+        }
+
+        function deleteKey(key) {
+            if (!confirm('Delete key: ' + key + '?')) return;
+            fetch(`/api/delete/${key}`, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        toast('Key deleted', 'success');
+                        loadKeys();
+                    } else {
+                        toast('Delete failed: ' + data.error, 'error');
+                    }
+                })
+                .catch(() => toast('Delete error', 'error'));
+        }
+
+        function clearAll() {
+            if (!confirm('⚠️ This will delete ALL keys and devices. Are you sure?')) return;
+            if (!confirm('Final confirmation: Delete everything?')) return;
+            fetch('/api/clear', { method: 'DELETE' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        toast('All data cleared', 'success');
+                        loadKeys();
+                    }
+                })
+                .catch(() => toast('Clear error', 'error'));
+        }
+
+        function logout() {
+            if (!confirm('Logout?')) return;
+            fetch('/admin/logout').then(() => {
+                window.location.href = '/';
+            });
+        }
+
+        function toast(msg, type) {
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+            const div = document.createElement('div');
+            div.className = `toast toast-${type}`;
+            div.textContent = msg;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        // Load on page load
+        document.addEventListener('DOMContentLoaded', loadKeys);
+    </script>
+</body>
+</html>
