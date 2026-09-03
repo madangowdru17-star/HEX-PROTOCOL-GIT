@@ -3,122 +3,340 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HEX KEY SYSTEM - Devices Management</title>
+    <title>HEX CHEATS GITXOS - Devices</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: #fff; min-height: 100vh; }
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
         
-        .header { background: linear-gradient(135deg, #00ff88, #00cc66); padding: 16px 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .header h1 { color: #0a0a0a; font-size: 22px; }
-        .header h1 i { margin-right: 10px; }
-        .header .badge { background: #0a0a0a; color: #00ff88; padding: 5px 15px; border-radius: 20px; font-size: 12px; }
-        .header .user-info { display: flex; align-items: center; gap: 15px; }
-        .header .user-info .logout-btn { background: rgba(0,0,0,0.3); color: #0a0a0a; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.3s; }
-        .header .user-info .logout-btn:hover { background: rgba(0,0,0,0.5); }
+        body { 
+            font-family: 'Orbitron', sans-serif; 
+            background: #0a0a0a; 
+            color: #fff; 
+            min-height: 100vh;
+        }
         
-        .nav { background: #111; border-bottom: 1px solid #222; padding: 0 30px; display: flex; gap: 5px; flex-wrap: wrap; }
-        .nav a { padding: 14px 20px; color: #666; text-decoration: none; font-size: 13px; font-weight: 600; transition: 0.3s; border-bottom: 3px solid transparent; }
-        .nav a:hover { color: #00ff88; border-bottom-color: #00ff88; }
+        .header {
+            background: rgba(17,17,17,0.95);
+            border-bottom: 1px solid rgba(0,255,136,0.1);
+            padding: 16px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            backdrop-filter: blur(20px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header h1 {
+            font-size: 20px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #00ff88, #00cc66);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 2px;
+        }
+        
+        .header h1 i {
+            -webkit-text-fill-color: #00ff88;
+            margin-right: 10px;
+        }
+        
+        .header .badge {
+            background: rgba(0,255,136,0.1);
+            color: #00ff88;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 10px;
+            letter-spacing: 2px;
+            border: 1px solid rgba(0,255,136,0.1);
+        }
+        
+        .header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .header .user-info .logout-btn {
+            background: rgba(255,255,255,0.05);
+            color: #888;
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 8px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+        
+        .header .user-info .logout-btn:hover {
+            background: rgba(255,68,68,0.1);
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+        
+        .nav {
+            background: rgba(17,17,17,0.95);
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            padding: 0 30px;
+            display: flex;
+            gap: 0;
+            flex-wrap: wrap;
+            backdrop-filter: blur(20px);
+            position: sticky;
+            top: 72px;
+            z-index: 99;
+        }
+        
+        .nav a {
+            padding: 14px 24px;
+            color: #555;
+            text-decoration: none;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .nav a:hover { color: #00ff88; }
         .nav a.active { color: #00ff88; border-bottom-color: #00ff88; }
         .nav a i { margin-right: 8px; }
         
-        .container { max-width: 1400px; margin: 0 auto; padding: 25px; }
+        .container { max-width: 1440px; margin: 0 auto; padding: 25px; }
         
-        .panel { background: #111; border: 1px solid #222; border-radius: 12px; padding: 25px; margin-bottom: 25px; }
-        .panel h3 { color: #00ff88; margin-bottom: 15px; font-size: 18px; }
+        .panel {
+            background: rgba(17,17,17,0.8);
+            border: 1px solid rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .panel h3 {
+            color: #00ff88;
+            margin-bottom: 15px;
+            font-size: 14px;
+            letter-spacing: 2px;
+            font-weight: 700;
+        }
+        
         .panel h3 i { margin-right: 10px; }
         
-        .btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.3s; font-size: 12px; }
-        .btn-primary { background: #00ff88; color: #0a0a0a; }
-        .btn-primary:hover { transform: scale(1.05); }
-        .btn-info { background: #3399ff; color: #fff; }
-        .btn-info:hover { transform: scale(1.05); }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-family: 'Orbitron', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
         
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th { text-align: left; padding: 10px; color: #666; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid #222; }
-        td { padding: 10px; border-bottom: 1px solid #1a1a1a; }
-        tr:hover { background: #0d0d0d; }
+        .btn-primary {
+            background: linear-gradient(135deg, #00ff88, #00cc66);
+            color: #0a0a0a;
+        }
         
-        .scrollable { max-height: 500px; overflow-y: auto; }
-        .scrollable::-webkit-scrollbar { width: 6px; }
-        .scrollable::-webkit-scrollbar-track { background: #0a0a0a; }
-        .scrollable::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
-        .scrollable::-webkit-scrollbar-thumb:hover { background: #00ff88; }
+        .btn-primary:hover {
+            transform: scale(1.04);
+            box-shadow: 0 0 30px rgba(0,255,136,0.15);
+        }
         
-        .input-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 15px; }
-        .input-group input { padding: 10px 14px; background: #1a1a1a; border: 2px solid #222; border-radius: 8px; color: #fff; font-size: 14px; flex: 1; min-width: 150px; }
-        .input-group input:focus { outline: none; border-color: #00ff88; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
         
-        .status-badge { display: inline-block; padding: 2px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-        .status-registered { background: #1a3a2a; color: #00ff88; }
-        .status-invalid { background: #3a1a1a; color: #ff4444; }
-        .status-unknown { background: #1a1a2a; color: #666; }
+        th {
+            text-align: left;
+            padding: 10px;
+            color: #555;
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
         
-        .toast { position: fixed; bottom: 30px; right: 30px; padding: 12px 24px; border-radius: 8px; font-weight: 600; z-index: 10000; animation: slideIn 0.5s ease; }
-        .toast-success { background: #00cc66; color: #0a0a0a; }
-        .toast-error { background: #ff4444; color: #fff; }
-        .toast-info { background: #3399ff; color: #fff; }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        td {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.02);
+            color: #888;
+        }
         
-        .footer { text-align: center; padding: 20px; color: #444; font-size: 12px; border-top: 1px solid #111; margin-top: 20px; }
+        tr:hover td {
+            background: rgba(255,255,255,0.02);
+        }
         
-        .check-result { margin-top: 10px; padding: 12px 16px; background: #0a0a0a; border-radius: 8px; border: 1px solid #222; font-family: monospace; font-size: 13px; }
+        .scrollable {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .scrollable::-webkit-scrollbar {
+            width: 4px;
+        }
+        .scrollable::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.02);
+        }
+        .scrollable::-webkit-scrollbar-thumb {
+            background: rgba(0,255,136,0.2);
+            border-radius: 2px;
+        }
+        .scrollable::-webkit-scrollbar-thumb:hover {
+            background: rgba(0,255,136,0.4);
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .input-group input {
+            padding: 12px 16px;
+            background: rgba(26,26,26,0.8);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s;
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: rgba(0,255,136,0.2);
+        }
+        
+        .check-result {
+            margin-top: 10px;
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.03);
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
         .check-result .found { color: #00ff88; }
         .check-result .not-found { color: #ffaa00; }
         .check-result .error { color: #ff4444; }
-        .check-result .detail { color: #888; font-size: 12px; }
+        .check-result .detail { color: #555; font-size: 10px; margin-top: 4px; }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 8px;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        
+        .status-registered { background: rgba(0,255,136,0.1); color: #00ff88; }
+        .status-invalid { background: rgba(255,68,68,0.1); color: #ff4444; }
+        
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            z-index: 10000;
+            animation: slideIn 0.5s ease;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .toast-success { background: #00cc66; color: #0a0a0a; }
+        .toast-error { background: #ff4444; color: #fff; }
+        .toast-info { background: #0099ff; color: #fff; }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #333;
+            font-size: 9px;
+            letter-spacing: 2px;
+            border-top: 1px solid rgba(255,255,255,0.03);
+            margin-top: 20px;
+            text-transform: uppercase;
+        }
+        
+        .footer span { color: #00ff88; }
         
         @media (max-width: 768px) {
             .header { flex-direction: column; gap: 10px; padding: 15px; }
             .nav { padding: 0 15px; overflow-x: auto; flex-wrap: nowrap; }
-            .nav a { padding: 12px 15px; font-size: 12px; white-space: nowrap; }
+            .nav a { padding: 12px 16px; font-size: 8px; white-space: nowrap; }
             .input-group { flex-direction: column; }
             .input-group input { width: 100%; }
-            table { font-size: 11px; }
+            table { font-size: 9px; }
             td, th { padding: 6px; }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1><i class="fas fa-laptop"></i> Devices Management</h1>
+        <h1><i class="fas fa-laptop"></i> DEVICES MANAGEMENT</h1>
         <div class="user-info">
             <span class="badge"><i class="fas fa-shield-alt"></i> SECURE</span>
-            <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> EXIT</button>
         </div>
     </div>
     
     <div class="nav">
-        <a href="/dashboard"><i class="fas fa-home"></i> Dashboard</a>
-        <a href="/keys"><i class="fas fa-keys"></i> Keys</a>
-        <a href="/devices" class="active"><i class="fas fa-laptop"></i> Devices</a>
-        <a href="/api-status"><i class="fas fa-code"></i> API Status</a>
+        <a href="/dashboard"><i class="fas fa-home"></i> DASHBOARD</a>
+        <a href="/keys"><i class="fas fa-keys"></i> KEYS</a>
+        <a href="/devices" class="active"><i class="fas fa-laptop"></i> DEVICES</a>
+        <a href="/api-status"><i class="fas fa-code"></i> API</a>
     </div>
     
     <div class="container">
-        <!-- Device Checker -->
-        <div class="panel" style="border-color: #3399ff;">
-            <h3><i class="fas fa-search"></i> Device Checker</h3>
+        <div class="panel" style="border-color: rgba(0,204,255,0.1);">
+            <h3><i class="fas fa-search"></i> DEVICE CHECKER</h3>
             <div class="input-group">
-                <input type="text" id="deviceCheckInput" placeholder="Enter Device ID to check..." style="font-family:monospace;">
-                <button class="btn btn-primary" onclick="checkDevice()"><i class="fas fa-search"></i> Check</button>
+                <input type="text" id="deviceCheckInput" placeholder="ENTER DEVICE ID..." style="font-family:'Courier New',monospace;">
+                <button class="btn btn-primary" onclick="checkDevice()"><i class="fas fa-search"></i> CHECK</button>
             </div>
             <div id="deviceCheckResult"></div>
         </div>
         
-        <!-- All Devices -->
         <div class="panel">
-            <h3><i class="fas fa-list"></i> All Registered Devices</h3>
+            <h3><i class="fas fa-list"></i> ALL REGISTERED DEVICES</h3>
             <div class="scrollable">
                 <table>
                     <thead>
                         <tr>
-                            <th>Device ID</th>
-                            <th>Associated Key</th>
-                            <th>IP Address</th>
-                            <th>Registered</th>
-                            <th>Last Activity</th>
+                            <th>DEVICE ID</th>
+                            <th>KEY</th>
+                            <th>IP</th>
+                            <th>REGISTERED</th>
+                            <th>LAST ACTIVITY</th>
                         </tr>
                     </thead>
                     <tbody id="devicesTable"></tbody>
@@ -127,7 +345,7 @@
         </div>
         
         <div class="footer">
-            <i class="fas fa-crown" style="color:#00ff88;"></i> HEX KEY SYSTEM v2.0 &bull; Secure Key Management
+            <i class="fas fa-crown" style="color:#00ff88;"></i> HEX CHEATS GITXOS v3.0 &bull; <span>SECURE KEY MANAGEMENT</span>
         </div>
     </div>
 
@@ -139,22 +357,22 @@
                     const tbody = document.getElementById('devicesTable');
                     tbody.innerHTML = '';
                     if (!data || data.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#444; padding:30px;">No devices registered</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#333; padding:30px;">NO DEVICES</td></tr>';
                         return;
                     }
                     data.forEach(d => {
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
-                            <td style="font-family:monospace; font-size:10px;">${d.device_id}</td>
-                            <td style="font-family:monospace; font-size:11px; color:#00ff88;">${d.key}</td>
-                            <td style="font-family:monospace; font-size:11px; color:#888;">${d.ip_address || 'Unknown'}</td>
-                            <td style="font-size:11px;">${new Date(d.registered).toLocaleString()}</td>
-                            <td style="font-size:11px; color:#888;">${d.last_activity ? new Date(d.last_activity).toLocaleString() : 'Never'}</td>
+                            <td style="font-family:'Courier New',monospace; font-size:10px; color:#fff;">${d.device_id}</td>
+                            <td style="font-family:'Courier New',monospace; font-size:11px; color:#00ff88;">${d.key}</td>
+                            <td style="font-family:'Courier New',monospace; font-size:10px; color:#555;">${d.ip_address || 'UNKNOWN'}</td>
+                            <td style="font-size:9px; color:#444;">${new Date(d.registered).toLocaleString()}</td>
+                            <td style="font-size:9px; color:#444;">${d.last_activity ? new Date(d.last_activity).toLocaleString() : 'NEVER'}</td>
                         `;
                         tbody.appendChild(tr);
                     });
                 })
-                .catch(() => toast('Failed to load devices', 'error'));
+                .catch(() => toast('FAILED TO LOAD DEVICES', 'error'));
         }
 
         function checkDevice() {
@@ -162,11 +380,11 @@
             const resultDiv = document.getElementById('deviceCheckResult');
             
             if (!deviceId) {
-                resultDiv.innerHTML = '<div class="error" style="color:#ff4444;">Please enter a Device ID</div>';
+                resultDiv.innerHTML = '<div class="check-result"><div class="error">ENTER DEVICE ID</div></div>';
                 return;
             }
 
-            resultDiv.innerHTML = '<div style="color:#888;"><i class="fas fa-spinner fa-spin"></i> Checking...</div>';
+            resultDiv.innerHTML = '<div class="check-result" style="color:#555;"><i class="fas fa-spinner fa-spin"></i> CHECKING...</div>';
 
             fetch('/api/device/check', {
                 method: 'POST',
@@ -179,36 +397,37 @@
                     if (data.registered) {
                         resultDiv.innerHTML = `
                             <div class="check-result">
-                                <div class="found"><i class="fas fa-check-circle"></i> Device is REGISTERED</div>
-                                <div class="detail">Associated Key: <span style="color:#00ff88; font-weight:bold;">${data.key}</span></div>
-                                <div class="detail">Registered: ${new Date(data.registered_at).toLocaleString()}</div>
-                                ${data.last_activity ? `<div class="detail">Last Activity: ${new Date(data.last_activity).toLocaleString()}</div>` : ''}
-                                <div class="detail">Key Status: ${data.is_key_valid ? '<span style="color:#00ff88;">Valid</span>' : '<span style="color:#ff4444;">Invalid/Expired</span>'}</div>
+                                <div class="found"><i class="fas fa-check-circle"></i> DEVICE REGISTERED</div>
+                                <div class="detail">KEY: <span style="color:#00ff88;">${data.key}</span></div>
+                                <div class="detail">TYPE: ${data.key_type || 'UNKNOWN'}</div>
+                                <div class="detail">REGISTERED: ${new Date(data.registered_at).toLocaleString()}</div>
+                                ${data.last_activity ? `<div class="detail">LAST ACTIVITY: ${new Date(data.last_activity).toLocaleString()}</div>` : ''}
+                                <div class="detail">KEY STATUS: ${data.is_key_valid ? '<span style="color:#00ff88;">VALID</span>' : '<span style="color:#ff4444;">EXPIRED/INVALID</span>'}</div>
                             </div>
                         `;
-                        toast('Device found!', 'success');
+                        toast('DEVICE FOUND', 'success');
                     } else {
                         resultDiv.innerHTML = `
                             <div class="check-result">
-                                <div class="not-found"><i class="fas fa-info-circle"></i> Device is NOT REGISTERED</div>
-                                <div class="detail">This device has not been registered with any key.</div>
+                                <div class="not-found"><i class="fas fa-info-circle"></i> DEVICE NOT REGISTERED</div>
+                                <div class="detail">THIS DEVICE IS NOT REGISTERED WITH ANY KEY</div>
                             </div>
                         `;
-                        toast('Device not registered', 'info');
+                        toast('DEVICE NOT REGISTERED', 'info');
                     }
                 } else {
-                    resultDiv.innerHTML = `<div class="check-result"><div class="error"><i class="fas fa-exclamation-triangle"></i> Error: ${data.error || 'Unknown'}</div></div>`;
-                    toast('Check failed', 'error');
+                    resultDiv.innerHTML = `<div class="check-result"><div class="error">ERROR: ${data.error || 'UNKNOWN'}</div></div>`;
+                    toast('CHECK FAILED', 'error');
                 }
             })
             .catch(err => {
-                resultDiv.innerHTML = `<div class="check-result"><div class="error"><i class="fas fa-exclamation-triangle"></i> Connection error</div></div>`;
-                toast('Connection error', 'error');
+                resultDiv.innerHTML = `<div class="check-result"><div class="error">CONNECTION ERROR</div></div>`;
+                toast('CONNECTION ERROR', 'error');
             });
         }
 
         function logout() {
-            if (!confirm('Logout?')) return;
+            if (!confirm('CONFIRM LOGOUT?')) return;
             fetch('/admin/logout').then(() => {
                 window.location.href = '/';
             });
@@ -224,7 +443,6 @@
             setTimeout(() => div.remove(), 3000);
         }
 
-        // Load on page load
         document.addEventListener('DOMContentLoaded', loadDevices);
     </script>
 </body>

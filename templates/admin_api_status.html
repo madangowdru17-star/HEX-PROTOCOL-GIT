@@ -3,179 +3,388 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HEX KEY SYSTEM - API Status</title>
+    <title>HEX CHEATS GITXOS - API Status</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: #fff; min-height: 100vh; }
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
         
-        .header { background: linear-gradient(135deg, #00ff88, #00cc66); padding: 16px 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .header h1 { color: #0a0a0a; font-size: 22px; }
-        .header h1 i { margin-right: 10px; }
-        .header .badge { background: #0a0a0a; color: #00ff88; padding: 5px 15px; border-radius: 20px; font-size: 12px; }
-        .header .user-info { display: flex; align-items: center; gap: 15px; }
-        .header .user-info .logout-btn { background: rgba(0,0,0,0.3); color: #0a0a0a; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.3s; }
-        .header .user-info .logout-btn:hover { background: rgba(0,0,0,0.5); }
+        body { 
+            font-family: 'Orbitron', sans-serif; 
+            background: #0a0a0a; 
+            color: #fff; 
+            min-height: 100vh;
+        }
         
-        .nav { background: #111; border-bottom: 1px solid #222; padding: 0 30px; display: flex; gap: 5px; flex-wrap: wrap; }
-        .nav a { padding: 14px 20px; color: #666; text-decoration: none; font-size: 13px; font-weight: 600; transition: 0.3s; border-bottom: 3px solid transparent; }
-        .nav a:hover { color: #00ff88; border-bottom-color: #00ff88; }
+        .header {
+            background: rgba(17,17,17,0.95);
+            border-bottom: 1px solid rgba(0,255,136,0.1);
+            padding: 16px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            backdrop-filter: blur(20px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header h1 {
+            font-size: 20px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #00ff88, #00cc66);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 2px;
+        }
+        
+        .header h1 i {
+            -webkit-text-fill-color: #00ff88;
+            margin-right: 10px;
+        }
+        
+        .header .badge {
+            background: rgba(0,255,136,0.1);
+            color: #00ff88;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 10px;
+            letter-spacing: 2px;
+            border: 1px solid rgba(0,255,136,0.1);
+        }
+        
+        .header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .header .user-info .logout-btn {
+            background: rgba(255,255,255,0.05);
+            color: #888;
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 8px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+        
+        .header .user-info .logout-btn:hover {
+            background: rgba(255,68,68,0.1);
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+        
+        .nav {
+            background: rgba(17,17,17,0.95);
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            padding: 0 30px;
+            display: flex;
+            gap: 0;
+            flex-wrap: wrap;
+            backdrop-filter: blur(20px);
+            position: sticky;
+            top: 72px;
+            z-index: 99;
+        }
+        
+        .nav a {
+            padding: 14px 24px;
+            color: #555;
+            text-decoration: none;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .nav a:hover { color: #00ff88; }
         .nav a.active { color: #00ff88; border-bottom-color: #00ff88; }
         .nav a i { margin-right: 8px; }
         
-        .container { max-width: 1400px; margin: 0 auto; padding: 25px; }
+        .container { max-width: 1440px; margin: 0 auto; padding: 25px; }
         
-        .panel { background: #111; border: 1px solid #222; border-radius: 12px; padding: 25px; margin-bottom: 25px; }
-        .panel h3 { color: #00ff88; margin-bottom: 15px; font-size: 18px; }
+        .panel {
+            background: rgba(17,17,17,0.8);
+            border: 1px solid rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .panel h3 {
+            color: #00ff88;
+            margin-bottom: 15px;
+            font-size: 14px;
+            letter-spacing: 2px;
+            font-weight: 700;
+        }
+        
         .panel h3 i { margin-right: 10px; }
         
-        .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
-        .status-card { background: #0a0a0a; border: 1px solid #222; border-radius: 10px; padding: 18px; text-align: center; }
-        .status-card .status-icon { font-size: 28px; margin-bottom: 8px; }
-        .status-card .status-label { color: #666; font-size: 12px; text-transform: uppercase; }
-        .status-card .status-value { font-size: 14px; font-weight: 600; margin-top: 4px; }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .status-card {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.03);
+            border-radius: 12px;
+            padding: 18px;
+            text-align: center;
+        }
+        
+        .status-card .status-icon { font-size: 24px; margin-bottom: 8px; }
+        .status-card .status-label { color: #555; font-size: 8px; text-transform: uppercase; letter-spacing: 2px; }
+        .status-card .status-value { font-size: 12px; font-weight: 700; margin-top: 4px; letter-spacing: 1px; }
         .status-online { color: #00ff88; }
         .status-offline { color: #ff4444; }
         
-        .endpoint { background: #0a0a0a; border: 1px solid #222; border-radius: 8px; padding: 15px; margin-bottom: 12px; }
-        .endpoint .method { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; }
-        .endpoint .method-get { background: #1a3a2a; color: #00ff88; }
-        .endpoint .method-post { background: #1a2a3a; color: #66aaff; }
-        .endpoint .method-delete { background: #3a1a1a; color: #ff4444; }
-        .endpoint .path { font-family: monospace; font-size: 14px; color: #fff; margin: 0 10px; }
-        .endpoint .desc { color: #666; font-size: 12px; }
-        .endpoint .test-btn { padding: 4px 12px; background: #00ff88; color: #0a0a0a; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px; }
-        .endpoint .test-btn:hover { transform: scale(1.05); }
-        .endpoint .result { margin-top: 8px; padding: 10px; background: #000; border-radius: 4px; font-family: monospace; font-size: 12px; color: #888; white-space: pre-wrap; max-height: 150px; overflow-y: auto; }
+        .endpoint {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 12px;
+        }
         
-        .toast { position: fixed; bottom: 30px; right: 30px; padding: 12px 24px; border-radius: 8px; font-weight: 600; z-index: 10000; animation: slideIn 0.5s ease; }
+        .endpoint .method {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 6px;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        
+        .endpoint .method-get { background: rgba(0,255,136,0.1); color: #00ff88; }
+        .endpoint .method-post { background: rgba(0,153,255,0.1); color: #66aaff; }
+        .endpoint .method-delete { background: rgba(255,68,68,0.1); color: #ff4444; }
+        
+        .endpoint .path {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #fff;
+            margin: 0 10px;
+        }
+        
+        .endpoint .desc { color: #555; font-size: 9px; letter-spacing: 1px; }
+        
+        .endpoint .test-btn {
+            padding: 4px 16px;
+            background: linear-gradient(135deg, #00ff88, #00cc66);
+            color: #0a0a0a;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 8px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+        
+        .endpoint .test-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(0,255,136,0.15);
+        }
+        
+        .endpoint .result {
+            margin-top: 10px;
+            padding: 12px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            color: #555;
+            white-space: pre-wrap;
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+        
+        .endpoint .result::-webkit-scrollbar {
+            width: 3px;
+        }
+        .endpoint .result::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .endpoint .result::-webkit-scrollbar-thumb {
+            background: rgba(0,255,136,0.2);
+            border-radius: 2px;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            z-index: 10000;
+            animation: slideIn 0.5s ease;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
         .toast-success { background: #00cc66; color: #0a0a0a; }
         .toast-error { background: #ff4444; color: #fff; }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .toast-info { background: #0099ff; color: #fff; }
         
-        .footer { text-align: center; padding: 20px; color: #444; font-size: 12px; border-top: 1px solid #111; margin-top: 20px; }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #333;
+            font-size: 9px;
+            letter-spacing: 2px;
+            border-top: 1px solid rgba(255,255,255,0.03);
+            margin-top: 20px;
+            text-transform: uppercase;
+        }
+        
+        .footer span { color: #00ff88; }
         
         @media (max-width: 768px) {
             .header { flex-direction: column; gap: 10px; padding: 15px; }
             .nav { padding: 0 15px; overflow-x: auto; flex-wrap: nowrap; }
-            .nav a { padding: 12px 15px; font-size: 12px; white-space: nowrap; }
+            .nav a { padding: 12px 16px; font-size: 8px; white-space: nowrap; }
             .status-grid { grid-template-columns: 1fr 1fr; }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1><i class="fas fa-code"></i> API Status</h1>
+        <h1><i class="fas fa-code"></i> API STATUS</h1>
         <div class="user-info">
             <span class="badge"><i class="fas fa-shield-alt"></i> SECURE</span>
-            <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> EXIT</button>
         </div>
     </div>
     
     <div class="nav">
-        <a href="/dashboard"><i class="fas fa-home"></i> Dashboard</a>
-        <a href="/keys"><i class="fas fa-keys"></i> Keys</a>
-        <a href="/devices"><i class="fas fa-laptop"></i> Devices</a>
-        <a href="/api-status" class="active"><i class="fas fa-code"></i> API Status</a>
+        <a href="/dashboard"><i class="fas fa-home"></i> DASHBOARD</a>
+        <a href="/keys"><i class="fas fa-keys"></i> KEYS</a>
+        <a href="/devices"><i class="fas fa-laptop"></i> DEVICES</a>
+        <a href="/api-status" class="active"><i class="fas fa-code"></i> API</a>
     </div>
     
     <div class="container">
-        <!-- System Status -->
         <div class="panel">
-            <h3><i class="fas fa-heartbeat"></i> System Status</h3>
+            <h3><i class="fas fa-heartbeat"></i> SYSTEM STATUS</h3>
             <div class="status-grid" id="systemStatus">
                 <div class="status-card">
                     <div class="status-icon" id="dbIcon"><i class="fas fa-database"></i></div>
-                    <div class="status-label">Database</div>
-                    <div class="status-value" id="dbStatus">Checking...</div>
+                    <div class="status-label">DATABASE</div>
+                    <div class="status-value" id="dbStatus">CHECKING...</div>
                 </div>
                 <div class="status-card">
                     <div class="status-icon"><i class="fas fa-server"></i></div>
-                    <div class="status-label">API Server</div>
-                    <div class="status-value status-online"><i class="fas fa-check-circle"></i> Online</div>
+                    <div class="status-label">API SERVER</div>
+                    <div class="status-value status-online"><i class="fas fa-check-circle"></i> ONLINE</div>
                 </div>
                 <div class="status-card">
                     <div class="status-icon"><i class="fas fa-lock"></i></div>
-                    <div class="status-label">Security</div>
-                    <div class="status-value status-online"><i class="fas fa-check-circle"></i> Active</div>
+                    <div class="status-label">SECURITY</div>
+                    <div class="status-value status-online"><i class="fas fa-check-circle"></i> ACTIVE</div>
                 </div>
                 <div class="status-card">
                     <div class="status-icon"><i class="fas fa-keys"></i></div>
-                    <div class="status-label">Total Keys</div>
+                    <div class="status-label">TOTAL KEYS</div>
                     <div class="status-value" id="totalKeysStatus">-</div>
                 </div>
             </div>
         </div>
         
-        <!-- API Endpoints -->
         <div class="panel">
-            <h3><i class="fas fa-plug"></i> API Endpoints</h3>
-            <p style="color:#666; font-size:13px; margin-bottom:15px;">Test API endpoints directly from the admin panel</p>
+            <h3><i class="fas fa-plug"></i> API ENDPOINTS</h3>
             
-            <!-- Login Endpoint -->
             <div class="endpoint">
                 <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
                     <span class="method method-post">POST</span>
                     <span class="path">/api/login</span>
-                    <span class="desc">Authenticate key + device</span>
-                    <button class="test-btn" onclick="testEndpoint('login')"><i class="fas fa-play"></i> Test</button>
+                    <span class="desc">AUTHENTICATE KEY + DEVICE</span>
+                    <button class="test-btn" onclick="testEndpoint('login')"><i class="fas fa-play"></i> TEST</button>
                 </div>
-                <div id="loginResult" class="result" style="display:none;">Click Test to run</div>
+                <div id="loginResult" class="result" style="display:none;">CLICK TEST TO RUN</div>
             </div>
             
-            <!-- Activate Endpoint -->
             <div class="endpoint">
                 <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
                     <span class="method method-post">POST</span>
                     <span class="path">/api/activate</span>
-                    <span class="desc">Activate a key</span>
-                    <button class="test-btn" onclick="testEndpoint('activate')"><i class="fas fa-play"></i> Test</button>
+                    <span class="desc">ACTIVATE A KEY</span>
+                    <button class="test-btn" onclick="testEndpoint('activate')"><i class="fas fa-play"></i> TEST</button>
                 </div>
-                <div id="activateResult" class="result" style="display:none;">Click Test to run</div>
+                <div id="activateResult" class="result" style="display:none;">CLICK TEST TO RUN</div>
             </div>
             
-            <!-- Check Endpoint -->
             <div class="endpoint">
                 <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
                     <span class="method method-get">GET</span>
                     <span class="path">/api/check</span>
-                    <span class="desc">Check key status</span>
-                    <button class="test-btn" onclick="testEndpoint('check')"><i class="fas fa-play"></i> Test</button>
+                    <span class="desc">CHECK KEY STATUS</span>
+                    <button class="test-btn" onclick="testEndpoint('check')"><i class="fas fa-play"></i> TEST</button>
                 </div>
-                <div id="checkResult" class="result" style="display:none;">Click Test to run</div>
+                <div id="checkResult" class="result" style="display:none;">CLICK TEST TO RUN</div>
             </div>
             
-            <!-- Device Check Endpoint -->
-            <div class="endpoint" style="border-color: #3399ff;">
+            <div class="endpoint" style="border-color: rgba(0,204,255,0.1);">
                 <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
                     <span class="method method-post">POST</span>
                     <span class="path">/api/device/check</span>
-                    <span class="desc">Check if device is registered</span>
-                    <button class="test-btn" onclick="testEndpoint('devicecheck')"><i class="fas fa-play"></i> Test</button>
+                    <span class="desc">CHECK DEVICE REGISTRATION</span>
+                    <button class="test-btn" onclick="testEndpoint('devicecheck')"><i class="fas fa-play"></i> TEST</button>
                 </div>
-                <div id="devicecheckResult" class="result" style="display:none;">Click Test to run</div>
+                <div id="devicecheckResult" class="result" style="display:none;">CLICK TEST TO RUN</div>
             </div>
             
-            <!-- Stats Endpoint -->
+            <div class="endpoint" style="border-color: rgba(0,204,255,0.1);">
+                <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <span class="method method-post">POST</span>
+                    <span class="path">/api/generate/5hour</span>
+                    <span class="desc">GENERATE 5-HOUR KEY</span>
+                    <button class="test-btn" onclick="testEndpoint('generate5hour')"><i class="fas fa-play"></i> TEST</button>
+                </div>
+                <div id="generate5hourResult" class="result" style="display:none;">CLICK TEST TO RUN</div>
+            </div>
+            
             <div class="endpoint">
                 <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
                     <span class="method method-get">GET</span>
                     <span class="path">/api/stats</span>
-                    <span class="desc">Get system statistics</span>
-                    <button class="test-btn" onclick="testEndpoint('stats')"><i class="fas fa-play"></i> Test</button>
+                    <span class="desc">SYSTEM STATISTICS</span>
+                    <button class="test-btn" onclick="testEndpoint('stats')"><i class="fas fa-play"></i> TEST</button>
                 </div>
-                <div id="statsResult" class="result" style="display:none;">Click Test to run</div>
+                <div id="statsResult" class="result" style="display:none;">CLICK TEST TO RUN</div>
             </div>
         </div>
         
         <div class="footer">
-            <i class="fas fa-crown" style="color:#00ff88;"></i> HEX KEY SYSTEM v2.0 &bull; Secure Key Management
+            <i class="fas fa-crown" style="color:#00ff88;"></i> HEX CHEATS GITXOS v3.0 &bull; <span>SECURE KEY MANAGEMENT</span>
         </div>
     </div>
 
     <script>
-        let testKey = '';
-
         function checkDatabase() {
             fetch('/db-check')
                 .then(res => res.json())
@@ -184,17 +393,17 @@
                     const status = document.getElementById('dbStatus');
                     if (data.status === 'ok') {
                         icon.innerHTML = '<i class="fas fa-database" style="color:#00ff88;"></i>';
-                        status.textContent = 'Connected';
+                        status.textContent = 'CONNECTED';
                         status.className = 'status-value status-online';
                     } else {
                         icon.innerHTML = '<i class="fas fa-database" style="color:#ff4444;"></i>';
-                        status.textContent = 'Error';
+                        status.textContent = 'ERROR';
                         status.className = 'status-value status-offline';
                     }
                 })
                 .catch(() => {
                     document.getElementById('dbIcon').innerHTML = '<i class="fas fa-database" style="color:#ff4444;"></i>';
-                    document.getElementById('dbStatus').textContent = 'Offline';
+                    document.getElementById('dbStatus').textContent = 'OFFLINE';
                     document.getElementById('dbStatus').className = 'status-value status-offline';
                 });
         }
@@ -211,15 +420,8 @@
         function testEndpoint(endpoint) {
             const resultDiv = document.getElementById(endpoint + 'Result');
             resultDiv.style.display = 'block';
-            resultDiv.textContent = '⏳ Testing...';
-
-            const testData = {
-                'login': { key: 'TESTKEY123', device_id: 'TEST_DEVICE' },
-                'activate': { key: 'TESTKEY123', device_id: 'TEST_DEVICE' },
-                'check': '',
-                'devicecheck': { device_id: 'TEST_DEVICE' },
-                'stats': ''
-            };
+            resultDiv.textContent = 'TESTING...';
+            resultDiv.style.color = '#555';
 
             let url = '/api/' + endpoint;
             let options = { method: 'GET' };
@@ -228,22 +430,28 @@
                 options = {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ key: 'TESTKEY123', device_id: 'TEST_DEVICE' })
+                    body: JSON.stringify({ key: 'HEXMODS', device_id: 'hwnair377jd4f2k6j7' })
                 };
             } else if (endpoint === 'activate') {
                 options = {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ key: 'TESTKEY123', device_id: 'TEST_DEVICE' })
+                    body: JSON.stringify({ key: 'HEXMODS', device_id: 'hwnair377jd4f2k6j7' })
                 };
             } else if (endpoint === 'devicecheck') {
                 options = {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device_id: 'TEST_DEVICE' })
+                    body: JSON.stringify({ device_id: 'hwnair377jd4f2k6j7' })
+                };
+            } else if (endpoint === 'generate5hour') {
+                options = {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ count: 1 })
                 };
             } else if (endpoint === 'check') {
-                url = '/api/check?key=TESTKEY123';
+                url = '/api/check?key=HEXMODS';
             }
 
             fetch(url, options)
@@ -252,28 +460,27 @@
                     try {
                         const json = JSON.parse(text);
                         resultDiv.textContent = JSON.stringify(json, null, 2);
-                        // Check if successful
                         if (json.success === true || json.status === 'ok' || json.status === 'SUCCESS') {
                             resultDiv.style.color = '#00ff88';
-                            toast('Endpoint test successful', 'success');
+                            toast('TEST SUCCESS', 'success');
                         } else {
                             resultDiv.style.color = '#ffaa00';
-                            toast('Endpoint returned response', 'info');
+                            toast('TEST COMPLETE', 'info');
                         }
                     } catch {
-                        resultDiv.textContent = text || 'Empty response';
+                        resultDiv.textContent = text || 'EMPTY RESPONSE';
                         resultDiv.style.color = '#888';
                     }
                 })
                 .catch(err => {
-                    resultDiv.textContent = '❌ Error: ' + err.message;
+                    resultDiv.textContent = 'ERROR: ' + err.message;
                     resultDiv.style.color = '#ff4444';
-                    toast('Test failed', 'error');
+                    toast('TEST FAILED', 'error');
                 });
         }
 
         function logout() {
-            if (!confirm('Logout?')) return;
+            if (!confirm('CONFIRM LOGOUT?')) return;
             fetch('/admin/logout').then(() => {
                 window.location.href = '/';
             });
@@ -289,11 +496,9 @@
             setTimeout(() => div.remove(), 3000);
         }
 
-        // Load on page load
         document.addEventListener('DOMContentLoaded', () => {
             checkDatabase();
             loadStats();
-            // Auto-refresh stats
             setInterval(loadStats, 30000);
         });
     </script>

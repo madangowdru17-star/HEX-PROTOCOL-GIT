@@ -3,179 +3,567 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HEX KEY SYSTEM - Dashboard</title>
+    <title>HEX CHEATS GITXOS - Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: #fff; min-height: 100vh; }
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
         
-        /* Header */
-        .header { background: linear-gradient(135deg, #00ff88, #00cc66); padding: 16px 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .header h1 { color: #0a0a0a; font-size: 22px; }
-        .header h1 i { margin-right: 10px; }
-        .header .badge { background: #0a0a0a; color: #00ff88; padding: 5px 15px; border-radius: 20px; font-size: 12px; }
-        .header .user-info { display: flex; align-items: center; gap: 15px; }
-        .header .user-info .logout-btn { background: rgba(0,0,0,0.3); color: #0a0a0a; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.3s; }
-        .header .user-info .logout-btn:hover { background: rgba(0,0,0,0.5); }
+        body { 
+            font-family: 'Orbitron', sans-serif; 
+            background: #0a0a0a; 
+            color: #fff; 
+            min-height: 100vh;
+        }
         
-        /* Navigation */
-        .nav { background: #111; border-bottom: 1px solid #222; padding: 0 30px; display: flex; gap: 5px; flex-wrap: wrap; }
-        .nav a { padding: 14px 20px; color: #666; text-decoration: none; font-size: 13px; font-weight: 600; transition: 0.3s; border-bottom: 3px solid transparent; }
-        .nav a:hover { color: #00ff88; border-bottom-color: #00ff88; }
-        .nav a.active { color: #00ff88; border-bottom-color: #00ff88; }
+        .header {
+            background: rgba(17,17,17,0.95);
+            border-bottom: 1px solid rgba(0,255,136,0.1);
+            padding: 16px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            backdrop-filter: blur(20px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header h1 {
+            font-size: 20px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #00ff88, #00cc66);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 2px;
+        }
+        
+        .header h1 i {
+            -webkit-text-fill-color: #00ff88;
+            margin-right: 10px;
+        }
+        
+        .header .badge {
+            background: rgba(0,255,136,0.1);
+            color: #00ff88;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 10px;
+            letter-spacing: 2px;
+            border: 1px solid rgba(0,255,136,0.1);
+        }
+        
+        .header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .header .user-info .logout-btn {
+            background: rgba(255,255,255,0.05);
+            color: #888;
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 8px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+        
+        .header .user-info .logout-btn:hover {
+            background: rgba(255,68,68,0.1);
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+        
+        .nav {
+            background: rgba(17,17,17,0.95);
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            padding: 0 30px;
+            display: flex;
+            gap: 0;
+            flex-wrap: wrap;
+            backdrop-filter: blur(20px);
+            position: sticky;
+            top: 72px;
+            z-index: 99;
+        }
+        
+        .nav a {
+            padding: 14px 24px;
+            color: #555;
+            text-decoration: none;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            border-bottom: 2px solid transparent;
+            position: relative;
+        }
+        
+        .nav a:hover { 
+            color: #00ff88; 
+        }
+        
+        .nav a.active {
+            color: #00ff88;
+            border-bottom-color: #00ff88;
+        }
+        
         .nav a i { margin-right: 8px; }
         
-        /* Container */
-        .container { max-width: 1400px; margin: 0 auto; padding: 25px; }
+        .container {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 25px;
+        }
         
-        /* Stats */
-        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin-bottom: 30px; }
-        .stat { background: #111; border: 1px solid #222; border-radius: 12px; padding: 20px; text-align: center; transition: 0.3s; }
-        .stat:hover { border-color: #00ff88; transform: translateY(-2px); }
-        .stat .num { font-size: 32px; font-weight: 900; color: #00ff88; }
-        .stat .label { color: #666; font-size: 11px; text-transform: uppercase; margin-top: 5px; letter-spacing: 0.5px; }
-        .stat .icon { font-size: 20px; color: #333; margin-bottom: 8px; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
         
-        /* Panels */
-        .panel { background: #111; border: 1px solid #222; border-radius: 12px; padding: 25px; margin-bottom: 25px; }
-        .panel h3 { color: #00ff88; margin-bottom: 15px; font-size: 18px; }
-        .panel h3 i { margin-right: 10px; }
-        .panel .subtitle { color: #666; font-size: 13px; margin-bottom: 15px; }
+        .stat {
+            background: rgba(17,17,17,0.8);
+            border: 1px solid rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 22px;
+            text-align: center;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
         
-        /* Forms */
-        .input-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-        .input-group input, .input-group select { padding: 10px 14px; background: #1a1a1a; border: 2px solid #222; border-radius: 8px; color: #fff; font-size: 14px; flex: 1; min-width: 80px; }
-        .input-group input:focus, .input-group select:focus { outline: none; border-color: #00ff88; }
-        .input-group textarea { padding: 10px 14px; background: #1a1a1a; border: 2px solid #222; border-radius: 8px; color: #fff; font-size: 13px; flex: 1; min-width: 200px; font-family: monospace; resize: vertical; }
+        .stat::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00ff88, transparent);
+            opacity: 0;
+            transition: all 0.3s;
+        }
         
-        /* Buttons */
-        .btn { padding: 10px 22px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.3s; font-size: 13px; }
-        .btn-primary { background: #00ff88; color: #0a0a0a; }
-        .btn-primary:hover { transform: scale(1.04); box-shadow: 0 0 20px rgba(0,255,136,0.2); }
-        .btn-custom { background: #ffaa00; color: #0a0a0a; }
-        .btn-custom:hover { transform: scale(1.04); }
-        .btn-danger { background: #ff4444; color: #fff; }
-        .btn-danger:hover { transform: scale(1.04); }
-        .btn-info { background: #3399ff; color: #fff; }
-        .btn-info:hover { transform: scale(1.04); }
-        .btn-sm { padding: 5px 12px; font-size: 11px; }
+        .stat:hover::before {
+            opacity: 1;
+        }
         
-        .key-display { background: #0a0a0a; border: 2px solid #222; border-radius: 8px; padding: 12px 18px; font-family: monospace; font-size: 16px; color: #00ff88; margin: 8px 0; display: inline-block; }
-        .copy-btn { background: none; border: none; color: #00ff88; cursor: pointer; margin-left: 10px; }
-        .copy-btn:hover { color: #fff; }
+        .stat:hover {
+            border-color: rgba(0,255,136,0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
         
-        .duration-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-        .duration-hours { background: #1a3a2a; color: #00ff88; }
-        .duration-days { background: #1a2a3a; color: #66aaff; }
+        .stat .icon {
+            font-size: 18px;
+            color: #00ff88;
+            margin-bottom: 8px;
+            opacity: 0.5;
+        }
         
-        .custom-tag { background: #ffaa00; color: #0a0a0a; padding: 1px 8px; border-radius: 10px; font-size: 9px; font-weight: 700; }
+        .stat .num {
+            font-size: 32px;
+            font-weight: 900;
+            color: #00ff88;
+            letter-spacing: 2px;
+        }
+        
+        .stat .label {
+            color: #555;
+            font-size: 9px;
+            text-transform: uppercase;
+            margin-top: 6px;
+            letter-spacing: 2px;
+        }
+        
+        .panel {
+            background: rgba(17,17,17,0.8);
+            border: 1px solid rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .panel h3 {
+            color: #00ff88;
+            margin-bottom: 15px;
+            font-size: 14px;
+            letter-spacing: 2px;
+            font-weight: 700;
+        }
+        
+        .panel h3 i {
+            margin-right: 10px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .input-group input, 
+        .input-group select, 
+        .input-group textarea {
+            padding: 12px 16px;
+            background: rgba(26,26,26,0.8);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 13px;
+            font-family: 'Orbitron', sans-serif;
+            transition: all 0.3s;
+            flex: 1;
+            min-width: 80px;
+        }
+        
+        .input-group input:focus,
+        .input-group select:focus,
+        .input-group textarea:focus {
+            outline: none;
+            border-color: rgba(0,255,136,0.2);
+            background: rgba(26,26,26,1);
+        }
+        
+        .input-group textarea {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            resize: vertical;
+            min-width: 200px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            font-family: 'Orbitron', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #00ff88, #00cc66);
+            color: #0a0a0a;
+        }
+        
+        .btn-primary:hover {
+            transform: scale(1.04);
+            box-shadow: 0 0 40px rgba(0,255,136,0.15);
+        }
+        
+        .btn-custom {
+            background: linear-gradient(135deg, #ffaa00, #ff8800);
+            color: #0a0a0a;
+        }
+        
+        .btn-custom:hover {
+            transform: scale(1.04);
+            box-shadow: 0 0 40px rgba(255,170,0,0.15);
+        }
+        
+        .btn-5hour {
+            background: linear-gradient(135deg, #00ccff, #0099ff);
+            color: #0a0a0a;
+        }
+        
+        .btn-5hour:hover {
+            transform: scale(1.04);
+            box-shadow: 0 0 40px rgba(0,204,255,0.15);
+        }
+        
+        .btn-danger {
+            background: #ff4444;
+            color: #fff;
+        }
+        
+        .btn-danger:hover {
+            transform: scale(1.04);
+        }
+        
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 9px;
+        }
+        
+        .key-display {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(0,255,136,0.1);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #00ff88;
+            margin: 8px 0;
+            display: inline-block;
+            letter-spacing: 1px;
+        }
+        
+        .copy-btn {
+            background: none;
+            border: none;
+            color: #00ff88;
+            cursor: pointer;
+            margin-left: 10px;
+            opacity: 0.5;
+            transition: all 0.3s;
+        }
+        
+        .copy-btn:hover {
+            opacity: 1;
+        }
+        
+        .duration-badge {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 10px;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        
+        .duration-hours { background: rgba(0,255,136,0.1); color: #00ff88; }
+        .duration-days { background: rgba(0,153,255,0.1); color: #66aaff; }
+        .duration-5hour { background: rgba(0,204,255,0.1); color: #00ccff; }
+        
+        .custom-tag {
+            background: rgba(255,170,0,0.1);
+            color: #ffaa00;
+            padding: 1px 10px;
+            border-radius: 10px;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            border: 1px solid rgba(255,170,0,0.1);
+        }
         
         .status-active { color: #00ff88; }
         .status-used { color: #ffaa00; }
         .status-expired { color: #ff4444; }
-        .status-inactive { color: #666; }
+        .status-inactive { color: #555; }
         
-        .toast { position: fixed; bottom: 30px; right: 30px; padding: 12px 24px; border-radius: 8px; font-weight: 600; z-index: 10000; animation: slideIn 0.5s ease; }
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            z-index: 10000;
+            animation: slideIn 0.5s ease;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
         .toast-success { background: #00cc66; color: #0a0a0a; }
         .toast-error { background: #ff4444; color: #fff; }
-        .toast-info { background: #3399ff; color: #fff; }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .toast-info { background: #0099ff; color: #fff; }
         
-        .footer { text-align: center; padding: 20px; color: #444; font-size: 12px; border-top: 1px solid #111; margin-top: 20px; }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #333;
+            font-size: 9px;
+            letter-spacing: 2px;
+            border-top: 1px solid rgba(255,255,255,0.03);
+            margin-top: 20px;
+            text-transform: uppercase;
+        }
         
-        /* Responsive */
+        .footer span {
+            color: #00ff88;
+        }
+        
+        .scrollable {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        
+        .scrollable::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .scrollable::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.02);
+        }
+        
+        .scrollable::-webkit-scrollbar-thumb {
+            background: rgba(0,255,136,0.2);
+            border-radius: 2px;
+        }
+        
+        .scrollable::-webkit-scrollbar-thumb:hover {
+            background: rgba(0,255,136,0.4);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+        
+        th {
+            text-align: left;
+            padding: 10px;
+            color: #555;
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        
+        td {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.02);
+            color: #888;
+        }
+        
+        tr:hover td {
+            background: rgba(255,255,255,0.02);
+        }
+        
+        .key-type-badge {
+            display: inline-block;
+            padding: 1px 10px;
+            border-radius: 8px;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        
+        .key-type-standard { background: rgba(0,255,136,0.1); color: #00ff88; }
+        .key-type-5hour { background: rgba(0,204,255,0.1); color: #00ccff; }
+        .key-type-custom { background: rgba(255,170,0,0.1); color: #ffaa00; }
+        
         @media (max-width: 768px) {
             .header { flex-direction: column; gap: 10px; padding: 15px; }
             .nav { padding: 0 15px; overflow-x: auto; flex-wrap: nowrap; }
-            .nav a { padding: 12px 15px; font-size: 12px; white-space: nowrap; }
+            .nav a { padding: 12px 16px; font-size: 8px; white-space: nowrap; }
             .stats { grid-template-columns: repeat(2, 1fr); }
             .input-group { flex-direction: column; }
-            .input-group input, .input-group select, .input-group textarea { width: 100%; }
+            .input-group input, 
+            .input-group select, 
+            .input-group textarea { width: 100%; }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1><i class="fas fa-crown"></i> HEX KEY SYSTEM</h1>
+        <h1><i class="fas fa-crown"></i> HEX CHEATS GITXOS</h1>
         <div class="user-info">
             <span class="badge"><i class="fas fa-shield-alt"></i> SECURE</span>
-            <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> EXIT</button>
         </div>
     </div>
     
     <div class="nav">
-        <a href="/dashboard" class="active"><i class="fas fa-home"></i> Dashboard</a>
-        <a href="/keys"><i class="fas fa-keys"></i> Keys</a>
-        <a href="/devices"><i class="fas fa-laptop"></i> Devices</a>
-        <a href="/api-status"><i class="fas fa-code"></i> API Status</a>
+        <a href="/dashboard" class="active"><i class="fas fa-home"></i> DASHBOARD</a>
+        <a href="/keys"><i class="fas fa-keys"></i> KEYS</a>
+        <a href="/devices"><i class="fas fa-laptop"></i> DEVICES</a>
+        <a href="/api-status"><i class="fas fa-code"></i> API</a>
     </div>
     
     <div class="container">
-        <!-- Stats -->
         <div class="stats" id="stats">
             <div class="stat">
                 <div class="icon"><i class="fas fa-keys"></i></div>
                 <div class="num" id="totalKeys">0</div>
-                <div class="label">Total Keys</div>
+                <div class="label">TOTAL KEYS</div>
             </div>
             <div class="stat">
                 <div class="icon"><i class="fas fa-check-circle"></i></div>
                 <div class="num" id="activeKeys">0</div>
-                <div class="label">Active Keys</div>
+                <div class="label">ACTIVE KEYS</div>
             </div>
             <div class="stat">
                 <div class="icon"><i class="fas fa-user-check"></i></div>
                 <div class="num" id="usedKeys">0</div>
-                <div class="label">Used Keys</div>
+                <div class="label">USED KEYS</div>
             </div>
             <div class="stat">
                 <div class="icon"><i class="fas fa-clock"></i></div>
                 <div class="num" id="expiredKeys">0</div>
-                <div class="label">Expired Keys</div>
+                <div class="label">EXPIRED KEYS</div>
             </div>
             <div class="stat">
                 <div class="icon"><i class="fas fa-laptop"></i></div>
                 <div class="num" id="totalDevices">0</div>
-                <div class="label">Devices</div>
+                <div class="label">DEVICES</div>
             </div>
             <div class="stat">
                 <div class="icon"><i class="fas fa-globe"></i></div>
                 <div class="num" id="uniqueIps">0</div>
-                <div class="label">Unique IPs</div>
+                <div class="label">UNIQUE IPS</div>
             </div>
         </div>
         
-        <!-- Generate Keys -->
+        <!-- Generate 5-Hour Keys -->
+        <div class="panel" style="border-color: rgba(0,204,255,0.1);">
+            <h3><i class="fas fa-bolt"></i> GENERATE 5-HOUR KEYS</h3>
+            <div class="input-group">
+                <input type="number" id="fiveHourCount" value="1" min="1" max="50" style="max-width:80px;">
+                <button class="btn btn-5hour" onclick="generateFiveHourKeys()"><i class="fas fa-bolt"></i> GENERATE HEX-XXXX-XXXX</button>
+            </div>
+            <div id="fiveHourGeneratedKeys" style="margin-top:15px;"></div>
+        </div>
+        
+        <!-- Generate Standard Keys -->
         <div class="panel">
-            <h3><i class="fas fa-robot"></i> Generate Keys</h3>
+            <h3><i class="fas fa-robot"></i> GENERATE STANDARD KEYS</h3>
             <div class="input-group">
                 <input type="number" id="keyCount" value="1" min="1" max="50" style="max-width:70px;">
                 <input type="number" id="durationValue" value="24" min="1" max="9999" style="max-width:80px;">
                 <select id="durationType" style="max-width:100px;">
-                    <option value="hours">Hours</option>
-                    <option value="days">Days</option>
+                    <option value="hours">HOURS</option>
+                    <option value="days">DAYS</option>
                 </select>
-                <input type="number" id="deviceLimit" value="1" min="1" max="10" style="max-width:70px;" placeholder="Devices">
-                <button class="btn btn-primary" onclick="generateKeys()"><i class="fas fa-wand-magic-sparkles"></i> Generate</button>
+                <input type="number" id="deviceLimit" value="1" min="1" max="10" style="max-width:70px;" placeholder="DEVICES">
+                <button class="btn btn-primary" onclick="generateKeys()"><i class="fas fa-wand-magic-sparkles"></i> GENERATE</button>
             </div>
             <div id="generatedKeys" style="margin-top:15px;"></div>
         </div>
         
-        <!-- Custom Keys -->
-        <div class="panel" style="border-color: #ffaa00;">
-            <h3><i class="fas fa-pen"></i> Custom Keys</h3>
+        <!-- Custom Keys (Any Format) -->
+        <div class="panel" style="border-color: rgba(255,170,0,0.1);">
+            <h3><i class="fas fa-pen"></i> CUSTOM KEYS (ANY FORMAT)</h3>
             <div class="input-group">
-                <textarea id="customKeysText" rows="3" placeholder="MYKEY123&#10;VIPKEY456" style="flex:2;"></textarea>
+                <textarea id="customKeysText" rows="3" placeholder="HEX-ABCD-1234-EFGH&#10;VIP-KEY-2026&#10;ANY-FORMAT-HERE" style="flex:2; font-family:'Courier New',monospace; font-size:12px;"></textarea>
                 <div style="display:flex; flex-direction:column; gap:8px; flex:1; min-width:150px;">
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
                         <input type="number" id="customDurationValue" value="24" min="1" max="9999" style="flex:1; min-width:60px;">
                         <select id="customDurationType" style="flex:1; min-width:80px;">
-                            <option value="hours">Hours</option>
-                            <option value="days">Days</option>
+                            <option value="hours">HOURS</option>
+                            <option value="days">DAYS</option>
                         </select>
-                        <input type="number" id="customDeviceLimit" value="1" min="1" max="10" style="flex:1; min-width:60px;" placeholder="Devices">
+                        <input type="number" id="customDeviceLimit" value="1" min="1" max="10" style="flex:1; min-width:60px;" placeholder="DEVICES">
                     </div>
-                    <button class="btn btn-custom" onclick="generateCustomKeys()"><i class="fas fa-plus"></i> Add Keys</button>
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="customKeyType" value="CUSTOM" placeholder="KEY TYPE" style="flex:1; font-family:'Orbitron',sans-serif; font-size:10px; text-transform:uppercase;">
+                        <button class="btn btn-custom" onclick="generateCustomKeys()"><i class="fas fa-plus"></i> ADD</button>
+                    </div>
                 </div>
             </div>
             <div id="customGeneratedKeys" style="margin-top:15px;"></div>
@@ -183,14 +571,14 @@
         
         <!-- Recent Activity -->
         <div class="panel">
-            <h3><i class="fas fa-history"></i> Recent Activity</h3>
-            <div style="max-height:250px; overflow-y:auto;">
-                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <h3><i class="fas fa-history"></i> RECENT ACTIVITY</h3>
+            <div class="scrollable">
+                <table>
                     <thead>
                         <tr>
-                            <th style="text-align:left; padding:8px; color:#666; font-size:11px; text-transform:uppercase; border-bottom:2px solid #222;">Time</th>
-                            <th style="text-align:left; padding:8px; color:#666; font-size:11px; text-transform:uppercase; border-bottom:2px solid #222;">Action</th>
-                            <th style="text-align:left; padding:8px; color:#666; font-size:11px; text-transform:uppercase; border-bottom:2px solid #222;">Details</th>
+                            <th>TIME</th>
+                            <th>ACTION</th>
+                            <th>DETAILS</th>
                         </tr>
                     </thead>
                     <tbody id="activityTable"></tbody>
@@ -199,14 +587,11 @@
         </div>
         
         <div class="footer">
-            <i class="fas fa-crown" style="color:#00ff88;"></i> HEX KEY SYSTEM v2.0 &bull; Secure Key Management
+            <i class="fas fa-crown" style="color:#00ff88;"></i> HEX CHEATS GITXOS v3.0 &bull; <span>SECURE KEY MANAGEMENT</span>
         </div>
     </div>
 
     <script>
-        // =============================================
-        // LOAD ALL DATA
-        // =============================================
         function loadAll() {
             loadStats();
             loadActivity();
@@ -233,16 +618,16 @@
                     const tbody = document.getElementById('activityTable');
                     tbody.innerHTML = '';
                     if (!data || data.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#444; padding:15px;">No activity</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#333; padding:20px;">NO ACTIVITY</td></tr>';
                         return;
                     }
                     data.slice(-10).reverse().forEach(a => {
                         const tr = document.createElement('tr');
                         const details = typeof a.details === 'string' ? a.details : JSON.stringify(a.details);
                         tr.innerHTML = `
-                            <td style="padding:8px; font-size:11px; border-bottom:1px solid #1a1a1a;">${new Date(a.timestamp).toLocaleString()}</td>
-                            <td style="padding:8px; border-bottom:1px solid #1a1a1a;"><span style="color:#00ff88;">${a.action}</span></td>
-                            <td style="padding:8px; font-size:12px; color:#888; border-bottom:1px solid #1a1a1a;">${details}</td>
+                            <td style="font-size:9px; color:#444;">${new Date(a.timestamp).toLocaleString()}</td>
+                            <td style="color:#00ff88; font-size:9px; letter-spacing:1px;">${a.action}</td>
+                            <td style="font-size:9px; color:#555;">${details}</td>
                         `;
                         tbody.appendChild(tr);
                     });
@@ -250,9 +635,32 @@
                 .catch(() => console.log('Activity load error'));
         }
 
-        // =============================================
-        // GENERATE KEYS
-        // =============================================
+        function generateFiveHourKeys() {
+            const count = document.getElementById('fiveHourCount').value || 1;
+
+            fetch('/api/generate/5hour', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ count: parseInt(count) })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    let html = '<div style="display:flex; flex-wrap:wrap; gap:10px;">';
+                    data.keys.forEach(k => {
+                        html += `<div class="key-display" style="border-color:rgba(0,204,255,0.2); color:#00ccff;">${k} <span class="key-type-badge key-type-5hour">5H</span> <button class="copy-btn" onclick="copyKey('${k}')"><i class="fas fa-copy"></i></button></div>`;
+                    });
+                    html += '</div>';
+                    document.getElementById('fiveHourGeneratedKeys').innerHTML = html;
+                    toast('GENERATED ' + data.count + ' 5-HOUR KEY(S)', 'success');
+                    loadAll();
+                } else {
+                    toast('FAILED: ' + (data.error || 'UNKNOWN'), 'error');
+                }
+            })
+            .catch(err => toast('ERROR: ' + err.message, 'error'));
+        }
+
         function generateKeys() {
             const count = document.getElementById('keyCount').value || 1;
             const durationValue = document.getElementById('durationValue').value || 24;
@@ -266,7 +674,8 @@
                     count: parseInt(count), 
                     duration_value: parseInt(durationValue),
                     duration_type: durationType,
-                    device_limit: parseInt(deviceLimit)
+                    device_limit: parseInt(deviceLimit),
+                    key_type: 'STANDARD'
                 })
             })
             .then(res => res.json())
@@ -274,18 +683,18 @@
                 if (data.success) {
                     let html = '<div style="display:flex; flex-wrap:wrap; gap:10px;">';
                     data.keys.forEach(k => {
-                        html += `<div class="key-display">${k} <button class="copy-btn" onclick="copyKey('${k}')"><i class="fas fa-copy"></i></button></div>`;
+                        html += `<div class="key-display">${k} <span class="key-type-badge key-type-standard">STD</span> <button class="copy-btn" onclick="copyKey('${k}')"><i class="fas fa-copy"></i></button></div>`;
                     });
-                    html += `<div style="width:100%; color:#888; font-size:12px; margin-top:5px;">Device limit: ${data.device_limit}</div>`;
+                    html += `<div style="width:100%; color:#555; font-size:9px; margin-top:5px; letter-spacing:1px;">DEVICE LIMIT: ${data.device_limit} &bull; ${data.duration_value} ${data.duration_type.toUpperCase()}</div>`;
                     html += '</div>';
                     document.getElementById('generatedKeys').innerHTML = html;
-                    toast('Generated ' + data.count + ' key(s)', 'success');
+                    toast('GENERATED ' + data.count + ' KEY(S)', 'success');
                     loadAll();
                 } else {
-                    toast('Failed: ' + (data.error || 'Unknown'), 'error');
+                    toast('FAILED: ' + (data.error || 'UNKNOWN'), 'error');
                 }
             })
-            .catch(err => toast('Error: ' + err.message, 'error'));
+            .catch(err => toast('ERROR: ' + err.message, 'error'));
         }
 
         function generateCustomKeys() {
@@ -293,26 +702,28 @@
             const durationValue = document.getElementById('customDurationValue').value || 24;
             const durationType = document.getElementById('customDurationType').value;
             const deviceLimit = document.getElementById('customDeviceLimit').value || 1;
+            const keyType = document.getElementById('customKeyType').value.toUpperCase() || 'CUSTOM';
 
             if (!keysText.trim()) {
-                toast('Enter at least one key', 'error');
+                toast('ENTER AT LEAST ONE KEY', 'error');
                 return;
             }
 
             const keys = keysText.split('\n').map(k => k.trim().toUpperCase()).filter(k => k);
             if (keys.length === 0) {
-                toast('No valid keys', 'error');
+                toast('NO VALID KEYS', 'error');
                 return;
             }
 
-            fetch('/api/generate/custom', {
+            fetch('/api/generate/custom/any', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     keys: keys,
                     duration_value: parseInt(durationValue),
                     duration_type: durationType,
-                    device_limit: parseInt(deviceLimit)
+                    device_limit: parseInt(deviceLimit),
+                    key_type: keyType
                 })
             })
             .then(res => res.json())
@@ -320,34 +731,31 @@
                 if (data.success) {
                     let html = '<div style="display:flex; flex-wrap:wrap; gap:10px;">';
                     data.keys.forEach(k => {
-                        html += `<div class="key-display" style="border-color:#ffaa00;">${k} ✏️ <button class="copy-btn" onclick="copyKey('${k}')"><i class="fas fa-copy"></i></button></div>`;
+                        html += `<div class="key-display" style="border-color:rgba(255,170,0,0.2); color:#ffaa00;">${k} <span class="key-type-badge key-type-custom">${keyType}</span> <button class="copy-btn" onclick="copyKey('${k}')"><i class="fas fa-copy"></i></button></div>`;
                     });
                     if (data.duplicates && data.duplicates.length > 0) {
-                        html += `<div style="color:#ffaa00; font-size:12px;">⚠️ Duplicates: ${data.duplicates.join(', ')}</div>`;
+                        html += `<div style="color:#ffaa00; font-size:9px; letter-spacing:1px;">DUPLICATES: ${data.duplicates.join(', ')}</div>`;
                     }
-                    html += `<div style="width:100%; color:#888; font-size:12px;">Device limit: ${data.device_limit}</div>`;
+                    html += `<div style="width:100%; color:#555; font-size:9px; margin-top:5px; letter-spacing:1px;">TYPE: ${keyType} &bull; DEVICE LIMIT: ${data.device_limit} &bull; ${data.duration_value} ${data.duration_type.toUpperCase()}</div>`;
                     html += '</div>';
                     document.getElementById('customGeneratedKeys').innerHTML = html;
                     document.getElementById('customKeysText').value = '';
-                    toast('Added ' + data.count + ' custom key(s)', 'success');
+                    toast('ADDED ' + data.count + ' CUSTOM KEY(S)', 'success');
                     loadAll();
                 } else {
-                    toast('Failed: ' + (data.error || 'Unknown'), 'error');
+                    toast('FAILED: ' + (data.error || 'UNKNOWN'), 'error');
                 }
             })
-            .catch(err => toast('Error: ' + err.message, 'error'));
+            .catch(err => toast('ERROR: ' + err.message, 'error'));
         }
 
-        // =============================================
-        // UTILITY FUNCTIONS
-        // =============================================
         function copyKey(key) {
             navigator.clipboard.writeText(key);
-            toast('Copied!', 'success');
+            toast('COPIED!', 'success');
         }
 
         function logout() {
-            if (!confirm('Are you sure you want to logout?')) return;
+            if (!confirm('CONFIRM LOGOUT?')) return;
             fetch('/admin/logout').then(() => {
                 window.location.href = '/';
             });
@@ -363,10 +771,7 @@
             setTimeout(() => div.remove(), 3000);
         }
 
-        // Auto-refresh every 30 seconds
         setInterval(loadAll, 30000);
-
-        // Load on page load
         document.addEventListener('DOMContentLoaded', loadAll);
     </script>
 </body>
